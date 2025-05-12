@@ -5,7 +5,11 @@
 
 ## What is SPACER-HB?
 
+<<<<<<< Updated upstream
 SPACER-HB is an ad-hoc, spatial, and public-data-based framework for early-stage local energy community planning. It integrates solar rooftop and buildings' facade renovation potential inventory with household-level energy vulnerability mapping to support informed pre-feasibility decisions.
+=======
+SPACER-HB is an ad-hoc, spatial, and public-data-based framework for early-stage local energy community planning. It integrates rooftop solar and building façade renovation potential with household-level energy vulnerability mapping to support informed pre-feasibility decisions.
+>>>>>>> Stashed changes
 
 
 ## Main purpose of the framework:
