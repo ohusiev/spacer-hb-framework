@@ -1,0 +1,45 @@
+final_framework_dir/
+    02_pv_calc_from_bond_rooftop/
+    07_vulnerability_index/
+    data/
+    img/
+    tests_and_my_pv_calculator/
+    __pycache__/
+    02_pv_calc_from_bond_rooftop/
+        data/
+        __pycache__/
+        data/
+            .ipynb_checkpoints/
+            230718 Сигнівка (footprints, segments)/
+            230719 Сихів (footprints, segments)/
+            Gipuzkoa/
+            .ipynb_checkpoints/
+            230718 Сигнівка (footprints, segments)/
+            230719 Сихів (footprints, segments)/
+            Gipuzkoa/
+                original/
+                original/
+        __pycache__/
+    07_vulnerability_index/
+        Italy/
+        Italy/
+    data/
+        00_pyqgis_wb_automatiser/
+        03_geopandas_facade_analyser/
+        04_energy_consumption_profiles/
+        06_enercom_estimator/
+        07_global_vulnerability_index/
+        height/
+        osm_buildings/
+        00_pyqgis_wb_automatiser/
+        03_geopandas_facade_analyser/
+        04_energy_consumption_profiles/
+            self_cons_estimation_files/
+            self_cons_estimation_files/
+        06_enercom_estimator/
+        07_global_vulnerability_index/
+        height/
+        osm_buildings/
+    img/
+    tests_and_my_pv_calculator/
+    __pycache__/
