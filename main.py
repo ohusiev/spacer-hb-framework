@@ -81,3 +81,16 @@ base_dir = "your_custom_name"  # Replace "your_custom_name" with any directory n
 create_directories= mk_dir.CustomDirectoryStructure(base_dir)
 create_directories.create_directories()
 """
+#%%
+import importlib
+import os
+import geopandas as gpd
+rooftop_analysis = importlib.import_module("01_pivot_rooftop_data")
+rt = rooftop_analysis.PivotRooftopAnalysis(file_dir=os.getcwd())
+#%%
+
+df_segments_wb_rooftop_analysis, gdf_building_footprint = rt.process_DataFrames()
+#%%
+df_segments_wb_rooftop_analysis, building_footprint = rt.pivot_whitebox_rooftop_analysis(df_segment=df_segments_wb_rooftop_analysis, df_buildings_footprint=gdf_building_footprint, col_name="s_area", key_ids=["build_id", "census_id"])
+
+# %%
