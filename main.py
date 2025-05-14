@@ -1,3 +1,4 @@
+#%%
 import importlib
 import pandas as pd
 
@@ -30,11 +31,20 @@ class DefaultPathsAndFileNames:
         # Extract file names from Excel and set them as attributes
         if excel_path and sheet_name:
             df=self._set_file_names_from_excel(excel_path, sheet_name)
-            self.PATH = df.loc['PATH', 'File']
+            print(df)
+            self.PATH = os.getcwd() if pd.isna(df.loc['PATH', 'File']) else f"{df.loc['PATH', 'File']}"
             self.LIDAR_FILE = f"{df.loc['LIDAR_FILE', 'File']}"
             self.BUILDING_FOOTPRINT_FILE = f"{df.loc['BUILDING_FOOTPRINT_FILE','File']}"
             self.STATISTICAL_CENSUS_FILE = f"{df.loc['STATISTICAL_CENSUS_FILE','File']}"
             self.WHITEBOX_RT_ANALYSIS_FILE = f"{df.loc['WHITEBOX_RT_ANALYSIS_FILE','File']}"
+
+            #Print the file names for demonstration
+            print("File names from Excel:\n")
+            print(f"PATH: {self.PATH}")
+            print(f"LIDAR_FILE: {self.LIDAR_FILE}")
+            print(f"BUILDING_FOOTPRINT_FILE: {self.BUILDING_FOOTPRINT_FILE}")
+            print(f"STATISTICAL_CENSUS_FILE: {self.STATISTICAL_CENSUS_FILE}")
+            print(f"WHITEBOX_RT_ANALYSIS_FILE: {self.WHITEBOX_RT_ANALYSIS_FILE}")
 
     def get(self, key):
         """
@@ -67,20 +77,12 @@ class DefaultPathsAndFileNames:
             print(f"Error reading Excel file: {e}")
     
 #%%
-""" 
 # Example usage
-default_paths = DefaultPaths()
-print(default_paths.get_path("data_dir"))  # Prints the data directory path
-
-module_name = "00_set_up_directories.set_up_directories"
-mk_dir = importlib.import_module(module_name)
-
-# Define the base directory and create the directory structure
-base_dir = "your_custom_name"  # Replace "your_custom_name" with any directory name you want
-
-create_directories= mk_dir.CustomDirectoryStructure(base_dir)
-create_directories.create_directories()
-"""
+default_paths = DefaultPathsAndFileNames(excel_path='files_directories_naming.xlsx', sheet_name="Sheet1")
+print(default_paths.get("BASE_DIR"))  # Access the base directory
+#get a dataframe with the file names
+print(default_paths.get("LIDAR_FILE"))  # Access the LIDAR file name
+#%%
 #%%
 import importlib
 import os
