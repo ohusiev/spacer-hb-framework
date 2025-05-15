@@ -35,22 +35,7 @@ data = pd.DataFrame({
     "Ten or more People Occupied Dwellings per municipality": [0.10, 0.265, 0.270],# "% Ten or more People Occupied Dwellings per municipality"
     "unemployment_rate": [0.05,0.06,0.07] # "% Percentage of people unemployed"
 })
-""" 
-columns that could be created
-    # 'Kids under 16 (male)': [20, 30, 40],
-    # 'Kids under 16 (female)': [18, 28, 38],
-    # 'People 0-25 (male)': [60, 90, 120],
-    # 'People 0-25 (female)': [60, 90, 120],
-    # 'People 25-65 (male)': [60, 90, 120],
-    # 'People 25-65 (female)': [55, 85, 115],
-    # 'Senior people (male)': [10, 15, 20],
-    # 'Senior people (female)': [8, 13, 18],
-    'Single occupied dwellings': [30, 40, 50],
-    'Two people': [40, 60, 80],
-    'Three to five people': [30, 50, 70],
-    'Six to nine people': [10, 110, 12],
-    'Ten or more people': [1, 0, 1],
-"""
+
 #%% Real DataFrame
 file_dir=os.getcwd()
 data = pd.read_excel(os.path.join(file_dir,"data/04_energy_consumption_profiles/00_data_census_id_ener_consum_profiling.xlsx"), sheet_name="04_dwelling_profiles_census", index_col=0) # `census_id` - statistical cencus id is an index
@@ -136,101 +121,6 @@ def calculate_dwellings(df):
 data = calculate_dwellings(data)
 print(data)
 data= data[data["Total number of dwellings"].notna()]
-#%% FIRST EXPLANATION OF LOGIC FOR CONSUMPTION PROFILES
-"""
-COUNSUMPTION PROFILES RULES
-
-# ND1 (Single Occupied Dwellings)="Total number of dwellings" * "% Single Occupied Dwellings" per municipality https://bit.ly/3xCooBO
-'Total number of population' https://bit.ly/3XMnuxj 
-"Total number of dwellings" per census section https://bit.ly/3L00naT
-    "CHR07 Single with work.General.Electricity.Bilbao"
-       Single with work = ('People 25-65' * percentage_of_people_25_65_live_alone)
-       % Single with work = Single with work /'People 25-65'
-    "CHR13 Student with Work.Electricity.Bilbao"
-       Student with Work = ('People 0-25' * percentage_of_people_0_25_live_alone) 
-       % Student with Work = Student with Work/ 'People 0-25'
-    "CHR30 Single, Retired Man.Electricity.Bilbao"
-       Single, Retired Man = ('People >65' * percentage_of_people_65_live_alone) 
-       % Single, Retired Man = Single, Retired Man / 'People >65'
-    Sum of all ND1 =  Single with work + Student with Work + Single, Ret # transforming into a "weight" coeffs
-
-    Single with work = round(ND1 * (Single with work/Sum of all ND1),0)
-    Student with Work = round(ND1 * (Student with Work/Sum of all ND1),0)
-    Single, Retired Man = round(ND1 * (Single, Retired Man/Sum of all ND1),0)
-
-%by civil status per municipality https://bit.ly/3VGeNBU
-    
-# ND2 (Two People Occupied Dwellings)="Total number of dwellings" * "% Two People Occupied Dwellings" per municipality https://bit.ly/3xCooBO
-coeff_Age_couples_= https://bit.ly/3XMnuxj
-
-    "CHR01 Couple both at Work.General.Electricity.Bilbao"
-        Couple both at Work = ('People 25-65' -  Single with work) * % couples_25_65_without_kids per region https://bit.ly/4eJNCyD
-    "CHR16 Couple over 65 years.General.Electricity.Bilbao"
-        Couple over 65 years = ('People >65' - Single, Retired Man) * % couples_without_kids per region https://bit.ly/4eJNCyD
-    "CHR22 Single woman, 1 child, with work.General.Electricity.Bilbao"
-        Single woman, 1 child = ('People 25-65' - Single with work) * % of monoparental per region https://bit.ly/4eJNCyD
-
-    Sum of all ND2 = Couple both at Work + Couple over 65 years + Single woman, 1 child # transforming into a "weight" coeffs
-    Couple both at Work = round(ND2 * (Couple both at Work/Sum of all ND2),0)
-    Couple over 65 years = round(ND2 * (Couple over 65 years/Sum of all ND2),0)
-    Single woman, 1 child = round(ND2 * (Single woman, 1 child/Sum of all ND2),0)
-        
-# ND3_5 (Three to Five People Occupied Dwellings)="Total number of dwellings" * "% Three to Five People Occupied Dwellings" per municipality https://bit.ly/3xCooBO
-coef_family_1_child= random()    
-coeff_employement = parado/total # table Población de 16 y más años por sexo y relación con la actividad (agrupado)
-coeff_1_children = 0.46 # 15.4/33.5 https://www.ine.es/prensa/ech_2020.pdf
-coeff_2_children = 0.44 # 14.7 / 33.5  https://www.ine.es/prensa/ech_2020.pdf
-coeff_3_more_children = 0.1 # 3/33.5 https://www.ine.es/prensa/ech_2020.pdf
-
-    "CHR03 Family, 1 child, both at work.General.Electricity.Bilbao" 
-    "CHR45 Family with 1 child, 1 at work, 1 at home.General.Electricity.Bilbao"
-    "CHR27 Family both at work, 2 children.General.Electricity.Bilbao"
-    "CHR41 Family with 3 children, both at work.General.Electricity.Bilbao"
-    "CHR20 Family one at work, one work home, 3 children.General.Electricity.Bilbao"
-    "CHR52 Student Flatsharing.General.Electricity.Bilbao"
-
-    Family, 1 child, both at work = (ND3_5 *coeff_1_children) * (coeff_employement)
-    Family with 1 child, 1 at work, 1 at home = (ND3_5 *coeff_1_children) * (1-coeff_employement)
-    Family both at work, 2 children = (ND3_5 *coeff_2_children) * (coeff_employement)
-    Family with 3 children, both at work = (ND3_5 *coeff_3_more_children) * (coeff_employement)
-    Family one at work, one work home, 3 children = (ND3_5 *coeff_3_more_children) * (1-coeff_employement)
-    # Student Flatsharing =
-
-# ND6_9 (Six to Nine People Occupied Dwellings)="Total number of dwellings" * "% Six to Nine People Occupied Dwellings" per municipality https://bit.ly/3xCooBO
-list = [id_1, id_2, id_3] # three random profiles with Wokring peole, and unemployed, with 6,8,9 people in the house
-    def select_random_elements(list, count):
-        return random.choices(list, k=count)
-
-    random_profiles = select_random_elements(list, ND6_9)
-randmom(list) # random choice of the profile
-# ND10 (Ten and more People Occupied Dwellings)="Total number of dwellings" * "% Ten and more People Occupied Dwellings" per municipality https://bit.ly/3xCooBO
-list_2 = [id_1, id_2, id_3] # three random profiles with Wokring peole, and unemployed, with 10,11,12 people in the house
-random_profiles = select_random_elements(list_2, ND10)
-
-"""
-""" 
-# ND1 Single Occupied Dwellings:
-    CHR07 Single with work	
-    CHR13 Student with Work	
-    CHR30 Single, Retired Man/Woman	
-# ND2 Two People Occupied Dwellings:
-    CHR01 Couple both at Work	
-    CHR16 Couple over 65 years	
-    CHR22 Single woman, 1 child, with work	
-
-# ND3-5 Three to Five People Occupied Dwellings:
-    CHR03 Family, 1 child, both at work.	
-    CHR52 Student Flatsharing	
-    CHR27 Family both at work, 2 children	
-    CHR41 Family with 3 children, both at work	
-    CHR45 Family with 1 child, 1 at work, 1 at home	
-    CHR20 Family one at work, one work home, 3 children	
-# ND6-9 Six to Nine People Occupied Dwellings:
-
-# ND10 More than 10 People Occupied Dwellings:
-"""
-
-
 #%%
 def calculate_single_dwellings_types(df_input):
     # Calculate intermediate values
