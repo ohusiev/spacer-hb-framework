@@ -1,9 +1,12 @@
 from qgis.core import (
     QgsVectorLayer, QgsVectorFileWriter, QgsVectorLayerJoinInfo,
-    QgsCoordinateReferenceSystem, QgsCoordinateTransformContext
+    QgsCoordinateReferenceSystem, QgsCoordinateTransformContext,
+    QgsProcessingFeatureSourceDefinition, QgsFeatureRequest
 )
 from qgis import processing
 import os
+import geopandas as gpd
+
 
 
 class RooftopAnalysisAutomatiser:
@@ -33,8 +36,8 @@ class RooftopAnalysisAutomatiser:
         self.output_join_1_path = os.path.join(self.temp_files_folder, "join_1_buildings_census.shp")
         self.output_corrected_geom_path = os.path.join(self.temp_files_folder, "corrected_geom_.shp")
         self.output_join_2_path = os.path.join(self.temp_files_folder, "join_2_rooftop_mean_coords.shp")
-        self.output_join_2_1_path = os.path.join(self.temp_files_folder, "join_2_rooftop_add_xy.geojson")
-        self.output_join_3_path = os.path.join(self.o_folder, f"00_wb_rt_analysis_{self.case_study_name}_segments_xy_coord.geojson")
+        self.output_join_3_path = os.path.join(self.temp_files_folder, "join_3_rooftop_add_xy.geojson")
+        self.output_join_4_path = os.path.join(self.o_folder, f"00_wb_rt_analysis_{self.case_study_name}_segments_xy_coord.geojson")
         self.final_output_file = f"00_wb_rt_analysis_{self.case_study_name}_segments.shp"
         self.final_output_path = os.path.join(self.o_folder, self.final_output_file)
 
@@ -86,87 +89,130 @@ class RooftopAnalysisAutomatiser:
             'INPUT': self.output_join_2_path,
             'CRS': QgsCoordinateReferenceSystem(self.crs_str),
             'PREFIX': f'{self.crs_str}_',
-            'OUTPUT': self.output_join_2_1_path
+            'OUTPUT': self.output_join_3_path
         })
 
     def fallback_mean_coords_for_null_xy(self):
         """
         For features with NULL XY in the surface output, run meancoordinates and patch values.
-        Saves results to a new GeoJSON file to avoid overwrite issues.
+        Saves results to a new shapefile to avoid overwrite issues.
         """
         x_field = f"{self.crs_str}_x"
         y_field = f"{self.crs_str}_y"
-        input_path = self.output_join_2_1_path
+        input_path = self.final_output_path  # self.output_join_3_path
         patch_prefix = "mean_"
 
-        # Load layer and select features with NULL XY
+        # Load layer and select features with NULL x_field or y_field
         xy_layer = QgsVectorLayer(input_path, "XY_Layer", "ogr")
         expr = f'"{x_field}" IS NULL OR "{y_field}" IS NULL'
         xy_layer.selectByExpression(expr)
-        selected_ids = xy_layer.selectedFeatureIds()
-
-        if not selected_ids:
+        count_selected = xy_layer.selectedFeatureCount()
+        
+        if count_selected==0:
             print("No NULL XY values found. Fallback not needed.")
             self.patched_xy_output_path = input_path  # proceed with unmodified file
             return
 
-        print(f"Found {len(selected_ids)} features with NULL XY. Running fallback...")
+        print(f"Selected {count_selected} features with NULL XY")
 
-        # Run mean coordinates on selection
-        fallback_result = processing.run("native:meancoordinates", {
+        # Save selected features to a new shapefile
+        selected_features = xy_layer.selectedFeatures()
+        if selected_features:
+            fields = xy_layer.fields()
+            crs = xy_layer.crs()
+            output_path = os.path.join(self.temp_files_folder, "null_xy_features.shp")
+            writer = QgsVectorFileWriter(
+            output_path,
+            "UTF-8",
+            fields,
+            xy_layer.wkbType(),
+            crs,
+            "ESRI Shapefile"
+            )
+            for feat in selected_features:
+                writer.addFeature(feat)
+            del writer  # Finalize writing
+            print(f"Saved {len(selected_features)} features with NULL XY to {output_path}")
+        else:
+            print("No features with NULL XY found.")
+
+        patched_path = os.path.join(self.temp_files_folder, "joined_surface_xy_patched.shp")
+
+        result = processing.run("native:meancoordinates", {
             'INPUT': QgsProcessingFeatureSourceDefinition(
-                input_path,
-                selectedFeaturesOnly=True,
-                featureLimit=-1,
-                geometryCheck=QgsFeatureRequest.GeometryAbortOnInvalid
+            output_path,
+            featureLimit=-1,
+            geometryCheck=QgsFeatureRequest.GeometryAbortOnInvalid
             ),
             'UID': 'FID',
-            'OUTPUT': 'TEMPORARY_OUTPUT'
-        })
-
-        fallback_layer = fallback_result['OUTPUT']
-
-        # Save join result to a new file (not overwriting the original)
-        patched_path = os.path.join(self.temp_files_folder, "joined_surface_xy_patched.geojson")
-
-        processing.run("native:joinattributestable", {
-            'INPUT': input_path,
-            'FIELD': 'FID',
-            'INPUT_2': fallback_layer,
-            'FIELD_2': 'FID',
-            'FIELDS_TO_COPY': ['X', 'Y'],
-            'METHOD': 1,
-            'DISCARD_NONMATCHING': False,
-            'PREFIX': patch_prefix,
             'OUTPUT': patched_path
         })
+        if result and 'OUTPUT' in result:
+            print(f"Patched XY coordinates saved to {result['OUTPUT']}")
+        else:
+            print("Failed to save patched XY coordinates.")
 
-        # Patch NULLs in the joined file
-        layer = QgsVectorLayer(patched_path, "XY_Layer_Patched", "ogr")
-        if not layer.isEditable():
-            layer.startEditing()
+    def fill_null_xy_with_mean_coords(self):
+        """
+        Fill NULL XY values with mean coordinates from the patched shapefile.
+        """
+        xy_layer = QgsVectorLayer(self.patched_xy_output_path, "XY_Layer", "ogr")
+        x_field = f"{self.crs_str}_x"
+        y_field = f"{self.crs_str}_y"
+        mean_x_field = f"{self.crs_str}_{self.patch_prefix}x"
+        mean_y_field = f"{self.crs_str}_{self.patch_prefix}y"
 
-        x_idx = layer.fields().indexFromName(x_field)
-        y_idx = layer.fields().indexFromName(y_field)
-        fx_idx = layer.fields().indexFromName(patch_prefix + "X")
-        fy_idx = layer.fields().indexFromName(patch_prefix + "Y")
+        for feature in xy_layer.getFeatures():
+            if feature[x_field] is None or feature[y_field] is None:
+                feature[x_field] = feature[mean_x_field]
+                feature[y_field] = feature[mean_y_field]
+                xy_layer.updateFeature(feature)
 
-        patched_count = 0
-        for f in layer.getFeatures():
-            fid = f.id()
-            if f[x_field] is None and f[patch_prefix + "X"] is not None:
-                layer.changeAttributeValue(fid, x_idx, f[patch_prefix + "X"])
-                patched_count += 1
-            if f[y_field] is None and f[patch_prefix + "Y"] is not None:
-                layer.changeAttributeValue(fid, y_idx, f[patch_prefix + "Y"])
+        # Save the updated layer
+        writer = QgsVectorFileWriter.writeAsVectorFormat(
+            xy_layer, self.final_output_path, "UTF-8",
+            xy_layer.crs(), "ESRI Shapefile"
+        )
+        if writer[0] != QgsVectorFileWriter.NoError:
+            print("Error when saving shapefile:", writer)
+        else:
+            print("Shapefile saved successfully:", self.final_output_path)
 
-        layer.commitChanges()
-        print(f"Patched {patched_count} features with fallback XY values.")
-        self.patched_xy_output_path = patched_path
+    def map_and_fill_null_xy(self):
+        """
+        Fill NULL x/y in final output with MEAN_X/MEAN_Y from patched file by FID using geopandas.
+        """
+        x_field = f"{self.crs_str}_x"
+        y_field = f"{self.crs_str}_y"
+        final_path = self.final_output_path
+        patched_path = os.path.join(self.temp_files_folder, "joined_surface_xy_patched.shp")
+        output_path = self.final_output_path #os.path.join(self.o_folder, "final_layer_with_filled_xy.shp")
+
+        final_gdf = gpd.read_file(final_path)
+        patched_gdf = gpd.read_file(patched_path)[["FID", "MEAN_X", "MEAN_Y"]]
+
+        # Merge on FID, suffixes to distinguish columns
+        merged = final_gdf.merge(patched_gdf, on="FID", how="left", suffixes=("", "_mean"))
+
+        # Fill nulls in x/y with MEAN_X/MEAN_Y
+        merged[x_field] = merged[x_field].fillna(merged["MEAN_X"])
+        merged[y_field] = merged[y_field].fillna(merged["MEAN_Y"])
+
+        # Drop MEAN_X/MEAN_Y columns before saving
+        merged = merged.drop(columns=["MEAN_X", "MEAN_Y"])
+
+        merged.to_file(output_path)
+        print("Shapefile with filled XY overwritten:", output_path)
+        # Save as CSV without geometry
+        merged = merged.drop(columns=["geometry"])
+        csv_output_path = os.path.join(self.o_folder, f"00_wb_rt_analysis_{self.case_study_name}_segments.csv")
+        merged.to_csv(csv_output_path, index=False)
+        print("CSV with filled XY saved:", csv_output_path)
+
 
     def join_surface_with_buildings(self):
         joined_fields = [f'{self.crs_str}_x', f'{self.crs_str}_y'] + self.building_ids + [self.census_id]
-        surface_layer = QgsVectorLayer(self.output_join_2_1_path, "RooftopMeanCoords", "ogr")
+        surface_layer = QgsVectorLayer(self.output_join_3_path, "RooftopMeanCoords", "ogr")
         building_layer_joined = QgsVectorLayer(self.output_join_1_path, "BuildingsJoinCensus", "ogr")
 
         # Apply uniqueness constraint (optional, as per your original script)
@@ -181,7 +227,7 @@ class RooftopAnalysisAutomatiser:
             'METHOD': 2,
             'DISCARD_NONMATCHING': False,
             'PREFIX': '',
-            'OUTPUT': self.output_join_3_path
+            'OUTPUT': self.output_join_4_path
         })
 
     def final_fid_join_and_save(self):
@@ -207,7 +253,7 @@ class RooftopAnalysisAutomatiser:
             print("Error when saving shapefile:", writer)
         else:
             print("Shapefile saved successfully:", self.final_output_path)
-
+        """
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = "CSV"
         options.layerOptions = ['GEOMETRY=AS_XY']
@@ -220,15 +266,16 @@ class RooftopAnalysisAutomatiser:
             print("Error when saving CSV:", writer)
         else:
             print("CSV saved successfully:", self.final_output_path.replace(".shp", ".csv"))
-
+        """
     def run(self):
         self.run_lidar_analysis()
         self.join_building_with_census()
         self.fix_rooftop_geometries()
         self.calculate_surface_points_and_xy()
-        self.fallback_mean_coords_for_null_xy()
-        self.join_surface_with_buildings()
+        #self.join_surface_with_buildings()
         self.final_fid_join_and_save()
+        self.fallback_mean_coords_for_null_xy()
+        self.map_and_fill_null_xy()
 
 
 # Example usage
