@@ -3,16 +3,91 @@ import pandas as pd
 import os
 import matplotlib.pyplot as plt
 
-#%%
-#PATH = r"C:\Users\oleksandr.husiev\My Drive\01_PHD_CODE\chapter_5\LoadProGen\Work\Bilbao"#"C:\Users\oleksandr.husiev\Desktop\Work"
-PATH = r"D:\oleksandr.husiev@deusto.es\01_PHD_CODE\chapter_5\LoadProGen\Work\Bilbao"
-#PATH = r"H:\My Drive\01_PHD_CODE\chapter_5\LoadProGen\Work\Bilbao"
+class EnergyProfileAggregator:
+    def __init__(self, path, profile_mapping, pv_pct=0.25):
+        self.PATH = path
+        self.profile_mapping = profile_mapping
+        self.pv_pct = pv_pct
+        self.no_pv_pct = 1 - pv_pct
+        self.files = [file for file in os.listdir(self.PATH) if file.endswith('.csv')]
+        self.df_dwellings_data = pd.read_csv(
+            "data/04_energy_consumption_profiles/04_1_energy_consumption_profiles_real_data.csv", index_col=0
+        )
+        self.data_no_pv = (self.df_dwellings_data[list(self.profile_mapping.keys())] * self.no_pv_pct).round(0)
+        self.data = (self.df_dwellings_data[list(self.profile_mapping.keys())] * self.pv_pct).round(0)
+        self.df_matrix = self.matrix_of_profiles()
 
-files = [file for file in os.listdir(PATH) if file.endswith('.csv')]
-file = os.path.join(PATH, files[0])
-df_dwellings_data = pd.read_csv("data/04_energy_consumption_profiles/04_1_energy_consumption_profiles_real_data.csv", index_col=0)
-# 
-#%%
+    # Create a matrix of all the electric energy profiles
+    def matrix_of_profiles(self):
+        df_matrix = None
+        for i, file_name in enumerate(self.files):
+            if df_matrix is None:
+                df_matrix = pd.read_csv(
+                    f"{self.PATH}/{file_name}", sep=';', usecols=["Time", "Sum [kWh]"], parse_dates=['Time']
+                )
+                file_name_clean = file_name.strip(".csv")
+                df_matrix = df_matrix.rename(columns={"Sum [kWh]": file_name_clean})
+            else:
+                df_temp = pd.read_csv(
+                    f"{self.PATH}/{file_name}", sep=';', usecols=["Time", "Sum [kWh]"], parse_dates=['Time']
+                )
+                file_name_clean = file_name.strip(".csv")
+                df_temp = df_temp.rename(columns={"Sum [kWh]": file_name_clean})
+                df_matrix = pd.merge(df_matrix, df_temp[['Time', file_name_clean]], on='Time', how='left')
+        return df_matrix
+
+    # Plotting the profiles
+    def plot_profiles(self):
+        self.df_matrix.plot(kind='line', figsize=(10, 6), marker='o')
+        plt.xlabel('Time')
+        plt.ylabel('Sensor Reading')
+        plt.title('Sensor Readings Over Time')
+        plt.legend(title='Sensors')
+        plt.show()
+
+    # Iterate over each row in df1
+    def aggregate_profiles(self, data):
+        df_matrix = self.df_matrix
+        profile_mapping = self.profile_mapping
+        result_df = pd.DataFrame(index=df_matrix.index, columns=data.index)
+        result_df['Time'] = df_matrix['Time']
+
+        for row_id in data.index:
+            # Get the row from df1 and filter for non-zero, non-NaN values
+            row_values = data[list(profile_mapping.keys())].loc[row_id]
+            non_zero_columns = row_values[(row_values != 0) & row_values.notna()].index
+
+            # Initialize the sum for this row
+            row_sum = pd.Series(0, index=df_matrix.index)
+
+            # Multiply corresponding columns in df2 by the values in df1 and sum them
+            for column in non_zero_columns:
+                value = data.loc[row_id, column]
+                row_sum += df_matrix[column] * value
+
+            # Store the summed result in df3
+            result_df[row_id] = row_sum
+
+        return result_df
+
+    def save_results(self):
+        result_pv_df = self.aggregate_profiles(self.data)
+        result_no_pv_df = self.aggregate_profiles(self.data_no_pv)
+
+        #make a directory to save the results if it does not exist
+        save_dir = f"data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}"
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+
+        result_pv_df.round(4).to_csv(
+            f"{save_dir}/04_2_aggregated_1h_profiles_with_pv_dwell_share_{self.pv_pct}.csv", index=False
+        )
+        result_no_pv_df.round(4).to_csv(
+            f"{save_dir}/04_2_aggregated_1h_profiles_no_pv_dwell_share_{self.no_pv_pct}.csv", index=False
+        )
+        return result_pv_df, result_no_pv_df
+
+# Example usage:
 profile_mapping = {
     #"1P_Occup": "ND1 Single Occupied Dwellings",
     "1P_Work": "CHR07 Single with work",
@@ -39,124 +114,13 @@ profile_mapping = {
     "10+P_Occup_id_1": "id_1",
     "10+P_Occup_id_2": "id_1"
 }
-#%% """FILTER FOR THE PROFILES"""
-# We assume a that from our dwellings per census_id only 50% will get a direct PV system for consumption,
-# while the other 50% will not have a PV system
-
-pv_pct = 0.25#1#0.25
-no_pv_pct = 1 - pv_pct
-
-data_no_pv=(df_dwellings_data[list(profile_mapping.keys())]*no_pv_pct).round(0)
-data = (df_dwellings_data[list(profile_mapping.keys())]*pv_pct).round(0)
-
 #%%
-# Create a matrix of all the electric energy profiles
-def matrix_of_profiles(PATH, files):
-    df_matrix = None
-    for i, file_name in enumerate(files):
-        if df_matrix is None:
-            df_matrix = pd.read_csv(f"{PATH}/{file_name}", sep=';', usecols=["Time", "Sum [kWh]"], parse_dates=['Time'])
-            file_name = file_name.strip(".csv")
-            df_matrix = df_matrix.rename(columns={"Sum [kWh]": file_name})
-        else:
-            df_temp = pd.read_csv(f"{PATH}/{file_name}", sep=';', usecols=["Time", "Sum [kWh]"], parse_dates=['Time'])
-            file_name = file_name.strip(".csv")
-            df_temp = df_temp.rename(columns={"Sum [kWh]": file_name})
-            df_matrix = pd.merge(df_matrix, df_temp[['Time', file_name]], on='Time', how='left')
-    
-    # Format the 'Time' column # works on personal computer but not on work computer
-    #df_matrix['Time'] = pd.to_datetime(df_matrix['Time'])
-    #df_matrix['Time'] = df_matrix['Time'].dt.strftime('%d/%m/%Y %H:%M')
-    
-    return df_matrix
-#%% Buikd the matrix of profiles
-df_matrix = matrix_of_profiles(PATH, files)
+PATH = r"C:\\Users\\Oleksandr-MSI\\Documentos\\GitHub\\spacer-hb-framework\\LoadProGen\\Bilbao"
+# Instantiate and use the class
+#pv_pct_list = [0.25, 0.5, 0.75]
+#for pv_pct in pv_pct_list:
+aggregator = EnergyProfileAggregator(PATH, profile_mapping, pv_pct=0.25)
+#aggregator.plot_profiles()
+result_pv_df, result_no_pv_df = aggregator.save_results()
 
-#%% plotting the profiles
-df_matrix.plot(kind='line', figsize=(10, 6), marker='o')
-# Add labels and title
-plt.xlabel('Time')
-plt.ylabel('Sensor Reading')
-plt.title('Sensor Readings Over Time')
-plt.legend(title='Sensors')
-
-#%%
-# Iterate over each row in df1
-def aggregate_profiles(data, df_matrix, profile_mapping):
-    result_df = pd.DataFrame(index=df_matrix.index, columns=data.index)
-    result_df['Time'] = df_matrix['Time']
-
-    
-    for row_id in data.index:
-        # Get the row from df1 and filter for non-zero, non-NaN values
-        row_values = data[list(profile_mapping.keys())].loc[row_id]
-        non_zero_columns = row_values[(row_values != 0) & row_values.notna()].index
-        
-        # Initialize the sum for this row
-        row_sum = pd.Series(0, index=df_matrix.index)
-        
-        # Multiply corresponding columns in df2 by the values in df1 and sum them
-        for column in non_zero_columns:
-            value = data.loc[row_id, column]
-            row_sum += df_matrix[column] * value
-
-        # Store the summed result in df3
-        result_df[row_id] = row_sum #.sum()  # sum() is used to sum across the series
-    
-    return result_df
-#%%
-result_pv_df = aggregate_profiles(data, df_matrix, profile_mapping)
-result_no_pv_df = aggregate_profiles(data_no_pv, df_matrix, profile_mapping)
-# Show the result
-result_pv_df
-#%%
-result_columns_sum = result_pv_df.sum(axis=0)
-#make a directory to save the results if it does not exist
-if not os.path.exists(f"data/04_energy_consumption_profiles/dwell_share_{pv_pct}"):
-    os.makedirs(f"data/04_energy_consumption_profiles/dwell_share_{pv_pct}")
-
-result_pv_df.round(4).to_csv(f"data/04_energy_consumption_profiles/dwell_share_{pv_pct}/04_2_aggregated_1h_profiles_with_pv_dwell_share_{pv_pct}.csv", index=False)
-#result_columns_sum.to_csv("data/04_energy_consumption_profiles/04_2_aggregated_1h_profiles_sum.csv")
-
-#%%
-result_no_pv_df.round(4).to_csv(f"data/04_energy_consumption_profiles/dwell_share_{pv_pct}/04_2_aggregated_1h_profiles_no_pv_dwell_share_{no_pv_pct}.csv", index=False)
-
-#%% SIMPLE EXERCISE TO DESIGNED THE FUNCTION
-""" 
-# Sample DataFrames
-df1 = pd.DataFrame({
-    'A': [1, 0, np.nan],
-    'B': [0, 2, 3],
-    'C': [4, 0, 5]
-}, index=[100, 101, 102])
-
-df2 = pd.DataFrame({
-    'A': [10, 20, 30],
-    'B': [40, 50, 60],
-    'C': [70, 80, 90]
-}, index=[0, 1, 2])
-
-# Initialize an empty DataFrame for the results with same index as df1 and one column for sums
-df3_resuts = pd.DataFrame(index=df2.index, columns=df1.index)
-
-# Iterate over each row in df1
-for row_id in df1.index:
-    # Get the row from df1 and filter for non-zero, non-NaN values
-    row_values = df1.loc[row_id]
-    non_zero_columns = row_values[(row_values != 0) & row_values.notna()].index
-    print(non_zero_columns)
-    # Initialize the sum for this row
-    row_sum = pd.Series(0, index=df2.index)
-    
-    # Multiply corresponding columns in df2 by the values in df1 and sum them
-    for column in non_zero_columns:
-        value = df1.loc[row_id, column]
-        row_sum += df2[column] * value
-    print(row_sum)
-    # Store the summed result in df3
-    df3_resuts[row_id] = row_sum #.sum()  # sum() is used to sum across the series
-
-# Show the result
-df3_resuts
-"""
 # %%
