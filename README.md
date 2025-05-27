@@ -64,8 +64,7 @@ root_folder/
 │       - Initial outputs from Whitebox Tools: Rooftop Analysis
 │
 ├── LoadProGen/
-|    └── Includes electricity load profiles for households. These are used for energy demand
-|          analysis within the framework.
+|    └── Includes electricity load profiles for households. These are used for energy demand analysis within the framework.
 |
 └── data/
     └── Stores temporary and key steps data files
@@ -77,23 +76,39 @@ root_folder/
 ### 2.3 FILES and FIELDS naming standartization
 
 
-
 ### Modules
-​    Module 1: ---
-​    Module 2: 
-​        Pyqgis and WhiteBox Rooftop analysis automatiser
-​        pivot of rooftop data
-​        geopandas facade analyser
-​    Module 3: 
-​        Rooftop PV analysis
-​    Module 4: 
-​        dwelling profile generator and assigner
-​        self-consumption estimator
-​    Module 5: 
-​        economic calculation
-​    Module 5: 
-​        energy community estimator
-​    Module 6: 
-​        Visualization
+​    Module 1: 
+
+        ---
+​    
+**Module 2: Pyqgis and WhiteBox Rooftop analysis automatiser**
+
+        00_pyqgis_wb_automatiser.py
+        01_pivot_rooftop_data.py
+        !!03_geopandas_facade_analyser.py
+
+**Module 3: Rooftop PV analysis**
+        
+        02_pv_calc_rooftop.py
+**Module 4: Dwelling profile generator and assigner, self-consumption estimator**
+        
+        04_ener_consum_profile_assigner.py
+        04_energy_profile_aggregation.py
+        04_self_consump_estimation.py
+
+        05_inspire_db_assigner.py
+​   
+**Module 5: Economic calculation**
+        
+        01_simple_kpi_calc.py
+        02_test_economic_analysis.py
+
+**Module 6: Energy community estimator**
+        
+        06_enercom_estimator.py
+**Module 7: Visualization**
+        !!! 04_self-cons_scenarios_calc.py
+        03_geo_visualization.py
+        QgIS +filters
 
 ## Input parameters file and naming standartization

@@ -12,7 +12,7 @@ df_sensitivity_vulner_zones_monthly = pd.DataFrame()
 # For testing, generate sample data
 #dataframe1, dataframe2, dataframe3, dataframe4, dataframe5, dataframe6 = test_data_generator()
 #%%
-pv_pct = 0.25  # percentage of dwellings with PV
+pv_pct = 0.25  # percentage of dwellings with PV [0.25, 0.5, 0.75, 1]
 no_pv_pct = 1 - pv_pct
 # Load your dataframes (replace 'your_path' with the actual file path or data source)
 #dataframe1 = pd.read_csv('data/04_energy_consumption_profiles/dwell_share_1/04_aggregated_pv_gen_by_census_id_monthly.csv')  # PV generation data per building, monthly

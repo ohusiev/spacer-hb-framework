@@ -4,235 +4,202 @@ import geopandas as gpd
 import os, yaml
 import numpy as np
 
-#%% INPUT FILES:
-data_struct_file = '02_pv_calc_from_bond_rooftop/pv_energy.yml'
-with open(data_struct_file, 'r', encoding="utf-8") as f:
-    data_struct = yaml.safe_load(f)
+class SelfConsumptionEstimator:
+    def __init__(self, data_struct_file, rayon, pv_pct=0.25):
+        #%% INPUT FILES:
+        with open(data_struct_file, 'r', encoding="utf-8") as f:
+            self.data_struct = yaml.safe_load(f)
+        self.rayon = rayon.lower()
+        self.work_dir = self.data_struct[self.rayon]['work_dir']
+        self.pv_pct = pv_pct
+        self.no_pv_pct = 1 - pv_pct
 
-rayon = "otxarkoaga".lower()
-work_dir = data_struct[rayon]['work_dir']
+        # Load the dataframes of aggregated consumption profiles
+        self.aggregated_profiles_file_path = 'data/04_energy_consumption_profiles/'
 
-# SET SELF_CONSUMPTION PARAMETERS to be used in the file name
-pv_pct = 0.25
-no_pv_pct = 1 - pv_pct
+        self.df_aggregated_profiles = pd.read_csv(
+            os.path.join(self.aggregated_profiles_file_path, f'dwell_share_{self.pv_pct}/04_2_aggregated_1h_profiles_with_pv_dwell_share_{self.pv_pct}.csv'),
+            parse_dates=['Time']
+        )
+        self.df_aggregated_profiles.set_index('Time', inplace=True)
 
-# Load the dataframes of aggregated consumption profiles
-aggregated_profiles_file_path = 'data/04_energy_consumption_profiles/'
+        self.df_aggregated_profiles_no_pv = pd.read_csv(
+            os.path.join(self.aggregated_profiles_file_path, f'dwell_share_{self.pv_pct}/04_2_aggregated_1h_profiles_no_pv_dwell_share_{self.no_pv_pct}.csv'),
+            parse_dates=['Time']
+        )
+        self.df_aggregated_profiles_no_pv.set_index('Time', inplace=True)
 
-df_aggregated_profiles = pd.read_csv(
-    os.path.join(aggregated_profiles_file_path, f'dwell_share_{pv_pct}/04_2_aggregated_1h_profiles_with_pv_dwell_share_{pv_pct}.csv'),
-    parse_dates=['Time']
-)
-df_aggregated_profiles.set_index('Time', inplace=True)
+        # Load the pv generation aggregated profile
+        pv_file_path = os.path.join("02_pv_calc_from_bond_rooftop/", self.work_dir, "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx")
+        self.pv_df = pd.read_excel(pv_file_path, sheet_name='Otxarkoaga')
+        self.pv_df_hourly = pd.read_csv('02_pv_calc_from_bond_rooftop/data/Otxarkoaga/pv_generation_hourly.csv')
 
-df_aggregated_profiles_no_pv = pd.read_csv(
-    os.path.join(aggregated_profiles_file_path, f'dwell_share_{pv_pct}/04_2_aggregated_1h_profiles_no_pv_dwell_share_{no_pv_pct}.csv'),
-    parse_dates=['Time']
-)
-df_aggregated_profiles_no_pv.set_index('Time', inplace=True)
+        # Reassigning the time range for the pv generation data to be aligned with the aggregated profiles
+        time_range = pd.date_range(start='2021-01-01 00:00:00', end='2021-12-31 23:00:00', freq='H')
+        self.pv_df_hourly['Time'] = time_range
+        self.pv_df_hourly.set_index('Time', inplace=True)
 
-# Load the pv generation aggregated profile
-pv_file_path = os.path.join("02_pv_calc_from_bond_rooftop/", work_dir, "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx")
-pv_df = pd.read_excel(pv_file_path, sheet_name='Otxarkoaga')
-pv_df_hourly = pd.read_csv('02_pv_calc_from_bond_rooftop/data/Otxarkoaga/pv_generation_hourly.csv')
+        # Ensure output directory exists
+        self.output_dir = f"data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/self_cons_estimation_files"
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
 
-# Reassigning the time range for the pv generation data to be aligned with the aggregated profiles
-time_range = pd.date_range(start='2021-01-01 00:00:00', end='2021-12-31 23:00:00', freq='H')
-pv_df_hourly['Time'] = time_range
-pv_df_hourly.set_index('Time', inplace=True)
+    def time_alignment(self):
+        #%% TIME ALIGNMENT
+        # Standardize the time format for all DataFrames
+        self.df_aggregated_profiles['Time'] = self.df_aggregated_profiles['Time'].str.replace('2021', '2023')
+        self.df_aggregated_profiles['Time'] = pd.to_datetime(self.df_aggregated_profiles['Time'])
+        self.df_aggregated_profiles.set_index('Time', inplace=True)
 
-#%% TIME ALIGNMENT
-# Transform the time format of the index column
-# Standardize the time format for all DataFrames
-#pv_df_hourly.index = pd.to_datetime(pv_df_hourly.index, utc=True).tz_convert(None) + pd.Timedelta(hours=2)
-#pv_df_hourly.index = pv_df_hourly.index.strftime('%d/%m/%Y %H:%M')
+        self.df_aggregated_profiles_no_pv['Time'] = self.df_aggregated_profiles_no_pv['Time'].str.replace('2021', '2023')
+        self.df_aggregated_profiles_no_pv['Time'] = pd.to_datetime(self.df_aggregated_profiles_no_pv['Time'])
+        self.df_aggregated_profiles_no_pv.set_index('Time', inplace=True)
 
-df_aggregated_profiles['Time'] = df_aggregated_profiles['Time'].str.replace('2021', '2023')
-df_aggregated_profiles['Time'] = pd.to_datetime(df_aggregated_profiles['Time'])#, format='%d/%m/%Y %H:%M')
-df_aggregated_profiles.set_index('Time', inplace=True)
+    @staticmethod
+    def aggregate_by_month_and_season(df):
+        # Function to aggregate energy consumption profiles by month and season
+        df['month'] = df.index.month
 
-df_aggregated_profiles_no_pv['Time'] = df_aggregated_profiles_no_pv['Time'].str.replace('2021', '2023')
-df_aggregated_profiles_no_pv['Time'] = pd.to_datetime(df_aggregated_profiles_no_pv['Time'])#, format='%d/%m/%Y %H:%M')
-df_aggregated_profiles_no_pv.set_index('Time', inplace=True)
+        def get_season(date):
+            month = date.month
+            if month in [12, 1, 2]:
+                return 'Winter'
+            elif month in [3, 4, 5]:
+                return 'Spring'
+            elif month in [6, 7, 8]:
+                return 'Summer'
+            elif month in [9, 10, 11]:
+                return 'Autumn'
 
-#df_aggregated_profiles.index = df_aggregated_profiles.index.str.replace('2021', '2023')
+        df['season'] = df.index.map(get_season)
+        monthly_aggregation = df.groupby('month').sum()
+        seasonal_aggregation = df.groupby('season').sum().drop(columns=['month'])
+        return monthly_aggregation, seasonal_aggregation
 
-# %% # Function to aggregate energy consumption profiles by month and season
-def aggregate_by_month_and_season(df):
-    # Ensure the index is in datetime format
-    #df.index = pd.to_datetime(df.index, format='%d/%m/%Y %H:%M')
-    
-    # Create a month column
-    df['month'] = df.index.month
-    
-    # Create a season column
-    def get_season(date):
-        month = date.month
-        if month in [12, 1, 2]:
-            return 'Winter'
-        elif month in [3, 4, 5]:
-            return 'Spring'
-        elif month in [6, 7, 8]:
-            return 'Summer'
-        elif month in [9, 10, 11]:
-            return 'Autumn'
-    
-    df['season'] = df.index.map(get_season)
-    
-    # Group by month and season and calculate the sum
-    monthly_aggregation = df.groupby('month').sum()#.drop(columns=['season'])
-    seasonal_aggregation = df.groupby('season').sum().drop(columns=['month'])
-    
-    return monthly_aggregation, seasonal_aggregation
+    @staticmethod
+    def calc_dir_self_consumption(df_generation, df_pv_consumption, df_no_pv_consumption, pv_pct):
+        # Function to calculate self-consumption percentage
 
-#%% # Function to calculate self-consumption percentage
-def calc_dir_self_consumption(df_generation, df_pv_consumption, df_no_pv_consumption):
-    # Replace zero values in generation data with NaN to avoid division by zero
-    #df_generation = df_generation.replace(0, np.nan)
-    #df_pv_consumption = df_generation.replace(0, np.nan)
-    #df_no_pv_consumption = df_generation.replace(0, np.nan)
-    #df_generation=df_generation.round(4)
-    #df_pv_consumption=df_pv_consumption.round(4)
-    #df_no_pv_consumption=df_no_pv_consumption.round(4)
-    
-    # Calculate the hourly self-consumed energy by taking the minimum of generation and consumption
-    #df_self_consumed_hourly = np.minimum(df_generation, df_pv_consumption)
-    
-    # Convert generation data to kWh
-    df_generation = (df_generation) #/ 1000
-    #print (f"Converted generation data to kWh in file: {df_generation}")
-    
-    # Calculate the hourly self-consumption percentage
-    df_self_consumed_hourly = np.minimum(df_generation, df_pv_consumption)
-    # correction
-    df_self_cons_pct_hourly = (df_self_consumed_hourly/ df_generation)
-    
-    # Ensure the index is in datetime format
-    #df_self_cons_pct_hourly.index = pd.to_datetime(df_self_cons_pct_hourly.index, format='%d/%m/%Y %H:%M')
-    
-    # Aggregate the hourly self-consumption percentage to monthly by averaging each month
-    #df_self_cons_pct_monthly = df_self_cons_pct_hourly.resample('M').mean().round(4)
-    #df_self_cons_pct_monthly = df_self_cons_pct_monthly.T
-    df_self_cons_pct_monthly = (df_self_consumed_hourly.resample('M').sum() / df_generation.resample('M').sum()).round(4)
-    df_self_cons_pct_monthly = df_self_cons_pct_monthly.T
-    df_self_cons_pct_monthly.columns = [f'self_m{month}' for month in df_self_cons_pct_monthly.columns.month]
+        # Calculate the hourly self-consumed energy by taking the minimum of generation and consumption
+        #df_generation = (df_generation)
+        df_self_consumed_hourly = np.minimum(df_generation, df_pv_consumption)
+        df_self_cons_pct_hourly = (df_self_consumed_hourly / df_generation)
 
-    # Calculate residual generation and load within the energy community (EC)
-    df_residual_generation = df_generation - df_self_consumed_hourly
-    #df_residual_generation[df_residual_generation < 0] = 0
+        # Aggregate the hourly self-consumption percentage to monthly by averaging each month
+        df_self_cons_pct_monthly = (df_self_consumed_hourly.resample('M').sum() / df_generation.resample('M').sum()).round(4)
+        df_self_cons_pct_monthly = df_self_cons_pct_monthly.T
+        df_self_cons_pct_monthly.columns = [f'self_m{month}' for month in df_self_cons_pct_monthly.columns.month]
 
-    df_residual_consumption = df_pv_consumption - df_self_consumed_hourly
-    df_residual_consumption[df_residual_consumption < 0] = 0
-    df_self_cons_pct_hourly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files\\04_1_self_cons_pct_hourly.csv')
-    df_residual_generation.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_2_pv_residual_generation.csv')
-    df_self_consumed_hourly.to_csv(f'data\\04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_1_self_consumed_hourly.csv')
-    df_residual_consumption.to_csv(f'data\\04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_2_pv_residual_load.csv')
+        # Calculate residual generation and load within the energy community (EC)
+        df_residual_generation = df_generation - df_self_consumed_hourly
+        df_residual_consumption = df_pv_consumption - df_self_consumed_hourly
+        df_residual_consumption[df_residual_consumption < 0] = 0
 
-    # Calculate the coverage of consumption without PV
-    no_pv_ec_cov_consumption = df_residual_generation.where(df_residual_generation <= df_no_pv_consumption, df_no_pv_consumption)
-    #no_pv_ec_cov_consumption=np.minimum(df_residual_generation, df_no_pv_consumption)
-    no_pv_ec_resid_generation = df_residual_generation - no_pv_ec_cov_consumption
-    #no_pv_ec_resid_generation[no_pv_ec_resid_generation < 0] = 0
-    no_pv_ec_resid_generation.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\self_cons_estimation_files\\04_3_no_pv_ec_resid_generation.csv')
+        df_self_cons_pct_hourly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_1_self_cons_pct_hourly.csv')
+        df_residual_generation.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_2_pv_residual_generation.csv')
+        df_self_consumed_hourly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_1_self_consumed_hourly.csv')
+        df_residual_consumption.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_2_pv_residual_load.csv')
 
-    no_pv_resid_consumption = df_no_pv_consumption - no_pv_ec_cov_consumption
-    #no_pv_resid_consumption[no_pv_resid_consumption < 0] = 0
-    no_pv_resid_consumption.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\self_cons_estimation_files\\04_4_no_pv_resid_consumption.csv')
+        # Calculate the coverage of consumption without PV
+        no_pv_ec_cov_consumption = df_residual_generation.where(df_residual_generation <= df_no_pv_consumption, df_no_pv_consumption)
+        no_pv_ec_resid_generation = df_residual_generation - no_pv_ec_cov_consumption
+        no_pv_ec_resid_generation.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_3_no_pv_ec_resid_generation.csv')
 
-    # Calculate the coverage of consumption with PV
-    pv_ec_cov_consumption = no_pv_ec_resid_generation.where(no_pv_ec_resid_generation <= df_residual_consumption, df_residual_consumption)
-    #pv_ec_cov_consumption[pv_ec_cov_consumption < 0] = 0
+        no_pv_resid_consumption = df_no_pv_consumption - no_pv_ec_cov_consumption
+        no_pv_resid_consumption.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files/04_4_no_pv_resid_consumption.csv')
 
-    # Calculate the hourly coverage percentage without PV
-    df_cov_pct_no_pv_hourly = (no_pv_ec_cov_consumption / df_generation)
-    df_cov_pct_no_pv_hourly = df_cov_pct_no_pv_hourly.fillna(0)
-    df_cov_pct_no_pv_hourly.index = pd.to_datetime(df_cov_pct_no_pv_hourly.index, format='%d/%m/%Y %H:%M')
-    
-    # Aggregate the hourly coverage percentage without PV to monthly by averaging each month
-    #df_cov_pct_no_pv_monthly = df_cov_pct_no_pv_hourly.resample('M').mean().round(4)
-    df_cov_pct_no_pv_monthly = no_pv_ec_cov_consumption.resample('M').sum() / df_generation.resample('M').sum()
-    df_cov_pct_no_pv_monthly = df_cov_pct_no_pv_monthly.T
-    df_cov_pct_no_pv_monthly.columns = [f'no_pv_cov_m{month}' for month in df_cov_pct_no_pv_monthly.columns.month]
+        # Calculate the coverage of consumption with PV
+        pv_ec_cov_consumption = no_pv_ec_resid_generation.where(no_pv_ec_resid_generation <= df_residual_consumption, df_residual_consumption)
 
-    # Calculate the hourly coverage percentage with PV
-    df_cov_pct_pv_hourly = (pv_ec_cov_consumption / df_generation)
-    df_cov_pct_pv_hourly = df_cov_pct_pv_hourly.fillna(0)
-    df_cov_pct_pv_hourly.index = pd.to_datetime(df_cov_pct_pv_hourly.index, format='%d/%m/%Y %H:%M')
-    
-    # Aggregate the hourly coverage percentage with PV to monthly by averaging each month
-    #df_cov_pct_pv_monthly = df_cov_pct_pv_hourly.resample('M').mean().round(4)
-    df_cov_pct_pv_monthly = pv_ec_cov_consumption.resample('M').sum() / df_generation.resample('M').sum()
-    df_cov_pct_pv_monthly = df_cov_pct_pv_monthly.T
-    df_cov_pct_pv_monthly.columns = [f'with_pv_cov_m{month}' for month in df_cov_pct_pv_monthly.columns.month]
+        # Calculate the hourly coverage percentage without PV
+        df_cov_pct_no_pv_hourly = (no_pv_ec_cov_consumption / df_generation)
+        df_cov_pct_no_pv_hourly = df_cov_pct_no_pv_hourly.fillna(0)
+        df_cov_pct_no_pv_hourly.index = pd.to_datetime(df_cov_pct_no_pv_hourly.index, format='%d/%m/%Y %H:%M')
 
-    return df_self_cons_pct_monthly, df_cov_pct_no_pv_monthly, df_cov_pct_pv_monthly
+        # Aggregate the hourly coverage percentage without PV to monthly by averaging each month
+        df_cov_pct_no_pv_monthly = no_pv_ec_cov_consumption.resample('M').sum() / df_generation.resample('M').sum()
+        df_cov_pct_no_pv_monthly = df_cov_pct_no_pv_monthly.T
+        df_cov_pct_no_pv_monthly.columns = [f'no_pv_cov_m{month}' for month in df_cov_pct_no_pv_monthly.columns.month]
 
+        # Calculate the hourly coverage percentage with PV
+        df_cov_pct_pv_hourly = (pv_ec_cov_consumption / df_generation)
+        df_cov_pct_pv_hourly = df_cov_pct_pv_hourly.fillna(0)
+        df_cov_pct_pv_hourly.index = pd.to_datetime(df_cov_pct_pv_hourly.index, format='%d/%m/%Y %H:%M')
 
-#%%
-matching_columns=pv_df_hourly.columns.intersection(df_aggregated_profiles.columns)
-matching_index=pv_df_hourly.index.intersection(df_aggregated_profiles.index)
-#%%
-if not os.path.exists(f"data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files"):
-    os.makedirs(f"data/04_energy_consumption_profiles/dwell_share_{pv_pct}/self_cons_estimation_files")
+        # Aggregate the hourly coverage percentage with PV to monthly by averaging each month
+        df_cov_pct_pv_monthly = pv_ec_cov_consumption.resample('M').sum() / df_generation.resample('M').sum()
+        df_cov_pct_pv_monthly = df_cov_pct_pv_monthly.T
+        df_cov_pct_pv_monthly.columns = [f'with_pv_cov_m{month}' for month in df_cov_pct_pv_monthly.columns.month]
 
-# Subset both DataFrames to only the matching rows and columns
-df_self_cons_pct_monthly,df_cov_pct_no_pv_monthly, df_cov_pct_pv_monthly = calc_dir_self_consumption(pv_df_hourly.loc[matching_index, matching_columns],df_aggregated_profiles.loc[matching_index, matching_columns],df_aggregated_profiles_no_pv.loc[matching_index, matching_columns]
-)
-#%%
-# Save the results
-df_self_cons_pct_monthly.to_csv(f'data\\\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\04_self_cons_pct_month_{pv_pct}.csv',index=True, index_label='census_id')
-df_cov_pct_no_pv_monthly.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\04_cov_pct_no_pv_month_{no_pv_pct}.csv',index=True, index_label='census_id')
-df_cov_pct_pv_monthly.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\04_cov_pct_pv_month_{pv_pct}.csv',index=True, index_label='census_id')
-#%% # Function to aggregate energy consumption profiles by month and season
-def get_aggregated_profiles(df_aggregated_profiles, matching_columns, col_suffix=None):
-    # Get the aggregated profiles by month and season by census_id column
-    monthly_agg, seasonal_agg = aggregate_by_month_and_season(df_aggregated_profiles)
-    
-    # Transform columns to int
-    monthly_agg = monthly_agg.loc[:, matching_columns]
-    #monthly_agg.columns = monthly_agg.columns.astype(int)
-    
-    # Transpose the dataframe
-    monthly_agg = monthly_agg.T
-    monthly_agg.columns = monthly_agg.columns.astype(int)
-    
-    # Add a total column
-    monthly_agg.columns = [f'{col_suffix}{month}' for month in monthly_agg.columns]
-    monthly_agg['Total, kWh'] = monthly_agg.sum(axis=1).round(4)
-    
-    return monthly_agg, seasonal_agg
-#%%
-# Usage
-monthly_agg, seasonal_agg = get_aggregated_profiles(df_aggregated_profiles, matching_columns, col_suffix='cons_m')
-monthly_agg.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\04_aggreg_cons_prof_with_pv_by_census_id_monthly_{pv_pct}.csv', index=True, index_label='census_id')
-#%%
-monthly_agg, seasonal_agg = get_aggregated_profiles(df_aggregated_profiles_no_pv, matching_columns, col_suffix='no_pv_cons_m')
-monthly_agg.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\04_aggreg_cons_prof_no_pv_by_census_id_monthly_{no_pv_pct}.csv', index=True, index_label='census_id')
+        return df_self_cons_pct_monthly, df_cov_pct_no_pv_monthly, df_cov_pct_pv_monthly
 
-#%% 
+    def get_matching_columns_and_index(self):
+        matching_columns = self.pv_df_hourly.columns.intersection(self.df_aggregated_profiles.columns)
+        matching_index = self.pv_df_hourly.index.intersection(self.df_aggregated_profiles.index)
+        return matching_columns, matching_index
 
-# Get the pv profiles by census_id column
-pv_df = pv_df[pv_df['census_id'].notna()]
-pv_df['census_id'] = pv_df['census_id'].astype(int)
-pv_census_aggreg_df= pv_df.groupby('census_id').sum([1,2,3,4,5,6,7,8,9,10,11,12, 'Total, kWh']).drop(columns=['plain_roof']).round(4)
-pv_census_aggreg_df.columns = [f'gen_m{month}' if month in [1,2,3,4,5,6,7,8,9,10,11,12] else month for month in pv_census_aggreg_df.columns]
-#%%
-# Save the results
-pv_census_aggreg_df.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\04_aggregated_pv_gen_by_census_id_monthly.csv', index=True)
+    def run_self_consumption(self):
+        matching_columns, matching_index = self.get_matching_columns_and_index()
+        df_self_cons_pct_monthly, df_cov_pct_no_pv_monthly, df_cov_pct_pv_monthly = self.calc_dir_self_consumption(
+            self.pv_df_hourly.loc[matching_index, matching_columns],
+            self.df_aggregated_profiles.loc[matching_index, matching_columns],
+            self.df_aggregated_profiles_no_pv.loc[matching_index, matching_columns],
+            self.pv_pct
+        )
+        # Save the results
+        df_self_cons_pct_monthly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_self_cons_pct_month_{self.pv_pct}.csv', index=True, index_label='census_id')
+        df_cov_pct_no_pv_monthly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_no_pv_month_{self.no_pv_pct}.csv', index=True, index_label='census_id')
+        df_cov_pct_pv_monthly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_pv_month_{self.pv_pct}.csv', index=True, index_label='census_id')
+        return df_self_cons_pct_monthly, df_cov_pct_no_pv_monthly, df_cov_pct_pv_monthly
 
-#%%
-# Get intersection of both index and columns
-matching_index = pv_census_aggreg_df.index.intersection(monthly_agg.index)
-matching_columns = pv_census_aggreg_df.columns.intersection(monthly_agg.columns)
+    def get_aggregated_profiles(self, df_aggregated_profiles, matching_columns, col_suffix=None):
+        # Function to aggregate energy consumption profiles by month and season
+        monthly_agg, seasonal_agg = self.aggregate_by_month_and_season(df_aggregated_profiles)
+        monthly_agg = monthly_agg.loc[:, matching_columns]
+        monthly_agg = monthly_agg.T
+        monthly_agg.columns = monthly_agg.columns.astype(int)
+        monthly_agg.columns = [f'{col_suffix}{month}' for month in monthly_agg.columns]
+        monthly_agg['Total, kWh'] = monthly_agg.sum(axis=1).round(4)
+        return monthly_agg, seasonal_agg
 
-# Subset both DataFrames to only the matching rows and columns
-generation_matching = pv_census_aggreg_df.loc[matching_index, matching_columns]
-consumption_matching = monthly_agg.loc[matching_index, matching_columns]
+    def save_aggregated_profiles(self):
+        matching_columns, _ = self.get_matching_columns_and_index()
+        monthly_agg, seasonal_agg = self.get_aggregated_profiles(self.df_aggregated_profiles, matching_columns, col_suffix='cons_m')
+        monthly_agg.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_with_pv_by_census_id_monthly_{self.pv_pct}.csv', index=True, index_label='census_id')
+        monthly_agg_no_pv, seasonal_agg_no_pv = self.get_aggregated_profiles(self.df_aggregated_profiles_no_pv, matching_columns, col_suffix='no_pv_cons_m')
+        monthly_agg_no_pv.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_no_pv_by_census_id_monthly_{self.no_pv_pct}.csv', index=True, index_label='census_id')
+        return monthly_agg, monthly_agg_no_pv
 
-# Perform element-wise division
-df_self_consumption = (generation_matching / consumption_matching).round(4)
+    def save_pv_profiles(self):
+        # Get the pv profiles by census_id column
+        pv_df = self.pv_df[self.pv_df['census_id'].notna()]
+        pv_df['census_id'] = pv_df['census_id'].astype(int)
+        pv_census_aggreg_df = pv_df.groupby('census_id').sum([1,2,3,4,5,6,7,8,9,10,11,12, 'Total, kWh']).drop(columns=['plain_roof']).round(4)
+        pv_census_aggreg_df.columns = [f'gen_m{month}' if month in [1,2,3,4,5,6,7,8,9,10,11,12] else month for month in pv_census_aggreg_df.columns]
+        pv_census_aggreg_df.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggregated_pv_gen_by_census_id_monthly.csv', index=True)
+        return pv_census_aggreg_df
 
-df_self_consumption
-#%%
-# Save the results
-df_self_consumption.to_csv(f'data\\04_energy_consumption_profiles\\dwell_share_{pv_pct}\\04_net_balance_gen_to_cons_by_census_id_monthly.csv', index=True)
+    def save_net_balance(self, monthly_agg, pv_census_aggreg_df):
+        # Get intersection of both index and columns
+        matching_index = pv_census_aggreg_df.index.intersection(monthly_agg.index)
+        matching_columns = pv_census_aggreg_df.columns.intersection(monthly_agg.columns)
+        # Subset both DataFrames to only the matching rows and columns
+        generation_matching = pv_census_aggreg_df.loc[matching_index, matching_columns]
+        consumption_matching = monthly_agg.loc[matching_index, matching_columns]
+        # Perform element-wise division
+        df_self_consumption = (generation_matching / consumption_matching).round(4)
+        df_self_consumption.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_net_balance_gen_to_cons_by_census_id_monthly.csv', index=True)
+        return df_self_consumption
+
+# Example usage:
+if __name__ == "__main__":
+    estimator = SelfConsumptionEstimator(
+        data_struct_file='02_pv_calc_from_bond_rooftop/pv_energy.yml',
+        rayon="otxarkoaga",
+        pv_pct=0.25
+    )
+    estimator.time_alignment()
+    estimator.run_self_consumption()
+    monthly_agg, monthly_agg_no_pv = estimator.save_aggregated_profiles()
+    pv_census_aggreg_df = estimator.save_pv_profiles()
+    estimator.save_net_balance(monthly_agg, pv_census_aggreg_df)
