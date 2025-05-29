@@ -206,6 +206,54 @@ if __name__ == "__main__":
     result_df.to_file("data/03_footprint_subtracted_facades_and_s_v_volume_area.geojson", driver="GeoJSON", index=False)
     result_df.drop(columns=['geometry']).to_csv("data/03_footprint_subtracted_facades_and_s_v_volume_area.csv", index=False)
 
+    # Example of how to use the FacadeAnalyser class from another script
+
+    # from 03_geopandas_facade_analyser import FacadeAnalyser
+
+    # Initialize the analyser (optionally provide base_dir or file_path)
+    analyser = FacadeAnalyser()
+
+    # Load polygons
+    analyser.load_polygons()
+
+    # (Optional) Merge height data if available
+    height_data_path = os.path.join(analyser.base_dir, 'height.geojson')
+    if os.path.exists(height_data_path):
+        gdf_height = gpd.read_file(height_data_path).round(4)
+        analyser.polygons_gdf = analyser.polygons_gdf.merge(
+            gdf_height[['build_id', 'h_mean', 'h_stdev', 'h_min', 'h_max']],
+            on='build_id', how='left'
+        )
+
+    # Calculate area and perimeter
+    analyser.polygons_gdf['f_area'] = round(analyser.polygons_gdf['geometry'].area, 4)
+    analyser.polygons_gdf['f_perimeter'] = round(analyser.polygons_gdf['geometry'].length, 4)
+
+    # Calculate facade lengths per orientation
+    facades_per_orientation_len_df = analyser.length_per_orientation()
+
+    # Find neighbors and their lengths per orientation
+    analyser.list_neighboring_polygons()
+    adjusted_facades_len_df = analyser.length_of_neighbors_per_orientation()
+
+    # Calculate surface area, volume, and s/v ratio
+    analyser.polygons_gdf['surface_area'] = analyser.polygons_gdf.apply(analyser.calculate_surface_area, axis=1)
+    analyser.polygons_gdf['volume'] = analyser.polygons_gdf.apply(analyser.calculate_volume, axis=1)
+    analyser.polygons_gdf['s_v_ratio'] = analyser.polygons_gdf.apply(analyser.calculate_s_v_ratio, axis=1).round(4)
+
+    # Subtract facade lengths
+    result_df = analyser.subtract_facade_len_from_adjusted_sides(facades_per_orientation_len_df, adjusted_facades_len_df)
+
+    # Calculate facade area per orientation
+    fadace_length_cols = {'len_N': 'N', 'len_NE': 'NE', 'len_E': 'E',
+                          'len_SE': 'SE', 'len_S': 'S', 'len_SW': 'SW', 'len_W': 'W', 'len_NW': 'NW'}
+    for key, value in fadace_length_cols.items():
+        result_df[f"fa_area_{value}"] = [0 if x < 0.1 else x for x in result_df[key]] * result_df['h_mean']
+
+    # Save results if needed
+    result_df.to_file("data/03_footprint_subtracted_facades_and_s_v_volume_area.geojson", driver="GeoJSON", index=False)
+    result_df.drop(columns=['geometry']).to_csv("data/03_footprint_subtracted_facades_and_s_v_volume_area.csv", index=False)
+
 #%% Functions format and round the numerical columns to 2 decimal places and convert them to strings with formatting
 # Round the numerical columns to 2 decimal places and convert them to strings with formatting
 def format_cell(x):

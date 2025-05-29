@@ -6,7 +6,7 @@ import numpy as np
 
 class SelfConsumptionEstimator:
     def __init__(self, data_struct_file, rayon, pv_pct=0.25):
-        #%% INPUT FILES:
+        # INPUT FILES:
         with open(data_struct_file, 'r', encoding="utf-8") as f:
             self.data_struct = yaml.safe_load(f)
         self.rayon = rayon.lower()
@@ -45,7 +45,7 @@ class SelfConsumptionEstimator:
             os.makedirs(self.output_dir)
 
     def time_alignment(self):
-        #%% TIME ALIGNMENT
+        # TIME ALIGNMENT
         # Standardize the time format for all DataFrames
         self.df_aggregated_profiles['Time'] = self.df_aggregated_profiles['Time'].str.replace('2021', '2023')
         self.df_aggregated_profiles['Time'] = pd.to_datetime(self.df_aggregated_profiles['Time'])
