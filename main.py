@@ -77,25 +77,33 @@ class DefaultPathsAndFileNames:
             print(f"Error reading Excel file: {e}")
     
 #%%
-# Example usage
-default_paths = DefaultPathsAndFileNames(excel_path='files_directories_naming.xlsx', sheet_name="Sheet1")
-print(default_paths.get("BASE_DIR"))  # Access the base directory
-#get a dataframe with the file names
-print(default_paths.get("LIDAR_FILE"))  # Access the LIDAR file name
-#%%
-#%%
 import importlib
 import os
 import geopandas as gpd
+import python.mod_02_pv_power_month as pv_rooftop_analysis
+import python.mod_03_geopandas_facade_analyser as facade_analyser
+import python.mod_04_ener_consum_profile_assigner as ener_cons_profile_assigner
+import python.mod_04_energy_profile_aggregation as profile_aggregation
+import python.mod_04_self_consump_estimation as self_cons_estimator
+import python.mod_05_inspire_db_assigner as inspire_db_assigner
+
+""" 
 pivot_rooftop_analysis = importlib.import_module("01_pivot_rooftop_data")
-pv_rooftop_analysis = importlib.import_module("02_pv_calc_rooftop/02_pv_calc_rooftop")
+pv_rooftop_analysis = importlib.import_module("02_pv_calc_rooftop.pv_power_month")
+
 facade_analyser = importlib.import_module("03_geopandas_facade_analyser")
 ener_cons_profile_assigner = importlib.import_module("04_ener_consum_profile_assigner")
 profile_aggregation = importlib.import_module("04_energy_profile_aggregation")
 self_cons_estimator = importlib.import_module("04_self_consump_estimation")
 
 inspire_db_assigner = importlib.import_module("05_inspire_db_assigner")
-
+"""
+#%%
+# Example usage
+default_paths = DefaultPathsAndFileNames(excel_path='files_directories_naming.xlsx', sheet_name="Sheet1")
+print(default_paths.get("BASE_DIR"))  # Access the base directory
+#get a dataframe with the file names
+print(default_paths.get("LIDAR_FILE"))  # Access the LIDAR file name
 
 #%% 01_pivot_rooftop_data
 
@@ -104,6 +112,8 @@ rt = pivot_rooftop_analysis.PivotRooftopAnalysis(file_dir=os.getcwd())
 df_segments_wb_rooftop_analysis, gdf_building_footprint = rt.process_DataFrames()
 df_segments_wb_rooftop_analysis, building_footprint = rt.pivot_whitebox_rooftop_analysis(df_segment=df_segments_wb_rooftop_analysis, df_buildings_footprint=gdf_building_footprint, col_name="s_area", key_ids=["build_id", "census_id"])
 #%% 02_pv_calc_rooftop
+pv_calculator = pv_rooftop_analysis.PVMonthCalculator('241211_econom_data.xlsx')
+#pv_calculator.calculate()
 #%% 03_geopandas_facade_analyser
 # from 03_geopandas_facade_analyser import FacadeAnalyser
 
