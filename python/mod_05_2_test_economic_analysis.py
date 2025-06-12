@@ -3,8 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from util_func import PVAnalysis
-from util_func import UtilFunctions
+from .util_func import PVAnalysis
+from .util_func import UtilFunctions
 from matplotlib.font_manager import FontProperties
 
 class EconomicAnalysis:
@@ -24,7 +24,7 @@ class EconomicAnalysis:
 
     def filter_residential_with_pv(self):
         # select only residential buildings and buildings with PV
-        self.df = self.df[(self.df["Codigo_Uso"] == "V") & (self.df["Total, kWh"] > 0)]
+        self.df = self.df[(self.df["building"] == "V") & (self.df["Total, kWh"] > 0)]
 
     def calculate_economic_indicators(self, r=0.05, n=20, n_int=30, energy_price_growth_rate=0, heating_energy_price_euro_per_kWh=0.243, pv_degradation_rate=0, CAL_REFERENCE_CASE=False, SCENARIO="S2", COMBINATION_ID=2):
         # Define parameters
@@ -165,7 +165,7 @@ class EconomicAnalysis:
         self.combined_df.to_excel(self.root + fr"\data\{filename_base}.xlsx", index=False)
 
     @staticmethod
-    def plotNPV(df, column_mapping, filename):
+    def plotNPV(df, column_mapping, filename, title="EUAC Composition by Scenario with rooftop PV"):
         """
         Plots the NPV composition using data from a specific DataFrame.
         Parameters:
@@ -196,7 +196,7 @@ class EconomicAnalysis:
 
         # Labels and formatting
         ax.set_ylabel("EUAC Composition [Mio €]")
-        ax.set_title("EUAC Composition by Scenario with rooftop PV")
+        ax.set_title(title)
         ax.set_xticks(x)
         ax.tick_params(axis='x', rotation=45)
         ax.set_xticklabels(labels)
@@ -229,7 +229,7 @@ class EconomicAnalysis:
         if CAL_REFERENCE_CASE:
             print(self.combined_df)
 
-    def plot_neighbourhood(self, filename="output_filename"):
+    def plot_neighbourhood(self, filename="output_filename", euac_col="EUAC"):
         combined_df_neighbourhood = self.combined_df.groupby('Filter').agg({
             'EUAC': 'sum',
             "Envelope_EUAC": 'sum',
@@ -241,19 +241,27 @@ class EconomicAnalysis:
             "Envelope_Annual_Savings": 'sum',
             "PV_Annual_Savings": 'sum'
         }).reset_index()
-        combined_df_neighbourhood['CAPEX'] = combined_df_neighbourhood['Envelope_Initial_I'] + combined_df_neighbourhood['PV_I_C']
-        combined_df_neighbourhood['fix_share'] = combined_df_neighbourhood['Envelope_Annual_M'] + combined_df_neighbourhood['PV_M_C']
-        combined_df_neighbourhood['revenue'] = combined_df_neighbourhood['Envelope_Annual_Savings'] + combined_df_neighbourhood['PV_Annual_Savings']
+
+        if euac_col == "EUAC":
+            combined_df_neighbourhood['CAPEX'] = combined_df_neighbourhood['Envelope_Initial_I'] + combined_df_neighbourhood['PV_I_C']
+            combined_df_neighbourhood['fix_share'] = combined_df_neighbourhood['Envelope_Annual_M'] + combined_df_neighbourhood['PV_M_C']
+            combined_df_neighbourhood['revenue'] = combined_df_neighbourhood['Envelope_Annual_Savings'] + combined_df_neighbourhood['PV_Annual_Savings']
+            title = "EUAC Composition by Scenario with rooftop PV"
+        if euac_col == "Envelope_EUAC":
+            combined_df_neighbourhood['CAPEX'] = combined_df_neighbourhood['Envelope_Initial_I']
+            combined_df_neighbourhood['fix_share'] = combined_df_neighbourhood['Envelope_Annual_M']
+            combined_df_neighbourhood['revenue'] = combined_df_neighbourhood['Envelope_Annual_Savings']
+            title = "Envelope EUAC Composition by Scenario without rooftop PV"
 
         column_mapping = {
             "names": "Filter",
-            "EUAC": "Envelope_EUAC", # "Envelope_EUAC", "EUAC"
+            "EUAC": euac_col, # "Envelope_EUAC", "EUAC"
             "CAPEX": "CAPEX",
             "fix_costs": "fix_share",
             "var_costs": "fix_share", # Not used in plot
             "revenue": "revenue"
         }
-        self.plotNPV(combined_df_neighbourhood, column_mapping, filename)
+        self.plotNPV(combined_df_neighbourhood, column_mapping, filename, title)
 
 # Example usage
 if __name__ == "__main__":
@@ -262,3 +270,5 @@ if __name__ == "__main__":
     analysis.run_analysis()
     analysis.save_to_excel("06_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic+EUAC_ORIGIN")
     analysis.plot_neighbourhood("output_filename")
+
+# %%

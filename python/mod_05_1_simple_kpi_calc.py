@@ -5,16 +5,16 @@ import numpy as np
 import os
 import yaml
 import matplotlib.pyplot as plt
-from util_func import UtilFunctions
-from util_func import PlotFunctions
-from util_func import PVAnalysis
+from .util_func import UtilFunctions
+from .util_func import PlotFunctions
+from .util_func import PVAnalysis
 
 class EconomicKPIAnalyzer:
     def __init__(self, root, pv_file_name, cost_file_name):
         # INPUT FILES:
         self.root = root
         self.pv_file_name = pv_file_name
-        self.pv_path = os.path.join(root, "02_pv_calc_from_bond_rooftop/data/Otxarkoaga/", pv_file_name)
+        self.pv_path = os.path.join("data/", pv_file_name)
         self.cost_file_name = cost_file_name
 
         # Load Data
@@ -25,7 +25,7 @@ class EconomicKPIAnalyzer:
         self.df_prices = pd.read_excel(cost_file_name, sheet_name='cost_electricity')
         self.df_monthly_self_cons_percentages = pd.read_excel(cost_file_name, sheet_name='sel-cons_%_fixed', index_col=0)
         self.monthly_self_cons_percentages = self.df_monthly_self_cons_percentages.set_index('Month')['self-cons'].to_dict()
-        self.df_ref_census_data = pd.read_csv('reference_census_data_table.csv', dtype={'census_id': str})
+        self.df_ref_census_data = pd.read_csv('economic_calc/reference_census_data_table.csv', dtype={'census_id': str})
 
         # Utilities
         self.util = UtilFunctions()
@@ -34,18 +34,26 @@ class EconomicKPIAnalyzer:
 
     def prepare_facades(self):
         # Merge PV data into facades
+        print("Preparing facades data by merging with PV generation data...")
         self.df_facades['build_id'] = self.df_facades['build_id'].astype(str)
         self.df_facades = pd.merge(
             self.df_facades,
-            self.df_pv_gen[["build_id", "r_area", "installed_kWp", "n_panel", "Total, kWh"]],
+            self.df_pv_gen[["build_id",  "installed_kWp", "n_panel", "Total, kWh"]],
             on="build_id", how='left'
         )
-        self.df_facades[["r_area", "n_panel", "Total, kWh"]] = self.df_facades[["r_area", "n_panel", "Total, kWh"]].fillna(0)
+        self.df_facades[["n_panel", "Total, kWh"]] = self.df_facades[["n_panel", "Total, kWh"]].fillna(0)
+        print("Facades data prepared with PV generation information.")
+        return self.df_pv_gen
 
-    def plot_pv_generation(self):
+    def plot_pv_generation(self, filter_col_name='building', filter_value='V'):
         # Plot PV generation by month total
-        print("Filtering PV data")
-        self.df_facades = self.df_facades[self.df_facades['Codigo_Uso'] == 'V']
+        print("Filtering PV data, by column:", filter_col_name, "with value:", filter_value)
+        self.df_facades = self.df_facades[self.df_facades[filter_col_name] == filter_value]
+        print("Filter PV generation by type of building...")
+        self.df_pv_gen=self.df_pv_gen[self.df_pv_gen[filter_col_name]==filter_value].copy().reset_index(drop=True)
+        self.df_pv_gen.loc[len(self.df_pv_gen)]= self.df_pv_gen.sum(axis=0,numeric_only=True)
+        self.df_pv_gen.loc[len(self.df_pv_gen)-1,'build_id']='Total'
+
         columns_to_plot = [i for i in range(1, 13)]
         self.util_plot.bar_plot_month_pv_columns(
             self.df_pv_gen[self.df_pv_gen['build_id'] == 'Total'],
@@ -128,7 +136,7 @@ class EconomicKPIAnalyzer:
 
         self.df_facades = df_facades
 
-    def calculate_heating_demand(self, REGION, SCENARIO, COMBINATION_ID, intervention_combinations, heating_energy_price_euro_per_kWh):
+    def calculate_heating_demand(self, REGION, SCENARIO, COMBINATION_ID, ESTIM_AVG_DWE_SIZE, intervention_combinations, heating_energy_price_euro_per_kWh):
         df_facades = self.df_facades
         df_h_dem_reduction_coeffs = self.df_h_dem_reduction_coeffs
         combination = intervention_combinations[COMBINATION_ID]
@@ -139,6 +147,7 @@ class EconomicKPIAnalyzer:
         # HEATING DEMAND SAVINGS CALCULATIONS
         df_facades['HDemProj'] = df_facades['HDemProj'].fillna(0)
         df_facades['HDem_iNSPiRE'] = df_facades['HDem_iNSPiRE'].fillna(0)
+        print(f"Heating demand reduction coefficient for {REGION}, {SCENARIO}, {combination}: {h_dem_reduction_coeff}")
         df_facades['HDemProj'] = self.adjust_heating_demand_vectorized(df_facades, 'HDem_iNSPiRE', 'HDemProj')
 
         df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_kWh/m2'] = df_facades['HDemProj'] * (1 - h_dem_reduction_coeff)
@@ -161,7 +170,7 @@ class EconomicKPIAnalyzer:
         if 'n_dwellOriginal' not in df_facades.columns:
             df_facades['n_dwellOriginal'] = (df_facades['grossFloorArea'] / df_facades['Avg dwelling size']).round(0)
         if 'n_dwellEstim' not in df_facades.columns:
-            AVG_DWE_SIZE = 55
+            AVG_DWE_SIZE = ESTIM_AVG_DWE_SIZE
             df_facades['n_dwellEstim'] = (df_facades['grossFloorArea'] / AVG_DWE_SIZE).round(0)
 
         df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_Savings_kWh'] = (df_facades['HDemProj'] - df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_kWh/m2']) * df_facades['grossFloorArea']
@@ -182,8 +191,8 @@ class EconomicKPIAnalyzer:
         self.df_pv_gen = df_pv_gen
 
     def save_pv_to_excel(self):
-        save_path = os.path.join(self.root,"02_pv_calc_from_bond_rooftop/data/Otxarkoaga/", self.pv_file_name)
-        self.util.add_sheet_to_excel(self.df_pv_gen, save_path, sheet_name='pv_cost', index=False)
+        save_path = os.path.join(self.root,"data", self.pv_file_name)
+        self.util.add_sheet_to_excel(self.df_pv_gen, save_path, sheet_name='pv_cost_upd', index=False)
 
     def join_pv_costs_to_facades(self):
         self.df_facades = pd.merge(
@@ -204,6 +213,8 @@ class EconomicKPIAnalyzer:
             price_increase_rate=energy_price_growth_rate
         )
         df_pv_results.drop(columns=['census_id'], inplace=True)
+        #cols_to_merge = [col for col in df_pv_results.columns if col not in self.df_facades.columns or col == 'build_id']
+        #self.df_economic_analysis = self.df_facades.merge(df_pv_results[cols_to_merge], on=['build_id'], how='left')
         self.df_economic_analysis = self.df_facades.merge(df_pv_results, on=['build_id'], how='left')
         print(self.df_economic_analysis[['build_id', 'census_id', 'PV_self_cons_kWh', 'PV_to_grid_kWh', 'PV_self_cons_Euro', 'PV_to_grid_Euro', ]])
 

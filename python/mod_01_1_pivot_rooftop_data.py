@@ -11,7 +11,7 @@ import os
 import numpy as np
 #%%
 class PivotRooftopAnalysis:
-    def __init__(self, file_dir):
+    def __init__(self, file_dir, path_to_wb_rooftop_analysis='pyqgis_wb_automatiser\\bilbao_otxarkoaga_v2\\00_wb_rt_analysis_bilbao_otxarkoaga_v2_segments_xy_coord.geojson', path_to_buildings_footprint='vector\\buildings_footprint\\etrs_25830\\buildings_inspire_clip_oxarkoaga+census.shp'):
         self.file_dir = file_dir
         self.azimuth_categories = {
             'roof_N': (337.5, 22.5),
@@ -24,8 +24,10 @@ class PivotRooftopAnalysis:
             'roof_NW': (300, 337.5),
             'flat_roof': (0, 0)
         }
+        self.path_to_wb_rooftop_analysis = path_to_wb_rooftop_analysis
+        self.path_to_buildings_footprint = path_to_buildings_footprint
 
-    def process_DataFrames(self, path_to_wb_rooftop_analysis='pyqgis_wb_automatiser\\bilbao_otxarkoaga_v2\\00_wb_rt_analysis_bilbao_otxarkoaga_v2_segments.shp', path_to_buildings_footprint='vector\\buildings_footprint\\etrs_25830\\buildings_inspire_clip_oxarkoaga+census.shp'):
+    def process_DataFrames(self):
         """
         Process rooftop analysis by reading and validating required files.
 
@@ -40,10 +42,10 @@ class PivotRooftopAnalysis:
         
         # Define file paths
         wb_rt_analysis_file_path = os.path.join(
-            file_dir, path_to_wb_rooftop_analysis
+            file_dir, self.path_to_wb_rooftop_analysis
         )
         buildings_footprint_path = os.path.join(
-            file_dir, path_to_buildings_footprint
+            file_dir, self.path_to_buildings_footprint
         )
         
         # Read buildings footprint

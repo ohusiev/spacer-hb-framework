@@ -9,11 +9,12 @@ from shapely.geometry import LineString
 class FacadeAnalyser:
     def __init__(self, base_dir=None, file_path=None):
         if base_dir is None:
-            self.base_dir = os.path.join(os.getcwd(), "vector", "buildings_footprint")
+            #self.base_dir = os.path.join(os.getcwd(), "vector", "buildings_footprint")
+            self.base_dir = os.path.join(os.getcwd(), "data")
         else:
             self.base_dir = base_dir
         if file_path is None:
-            self.file_path = os.path.join(self.base_dir, "etrs_25830/buildings_inspire_clip_oxarkoaga+census.shp")
+            self.file_path = os.path.join(self.base_dir,"01_footprint_s_area_wb_rooftop_analysis.geojson")# "etrs_25830/buildings_inspire_clip_oxarkoaga+census.shp")
         else:
             self.file_path = file_path
         self.polygons_gdf = None
@@ -29,9 +30,9 @@ class FacadeAnalyser:
         }
 
     def load_polygons(self, build_id='build_id'):
-        col_of_interest = [build_id, 'census_id', 'Codigo_Pol', 'Codigo_Par', 'building', 'Numero_Alt',
-                           'Ano_Constr', 'Ano_Rehabi', 'geometry']
+        col_of_interest = [build_id, 'census_id', 'Codigo_Pol', 'Codigo_Par', 'building', 'Numero_Alt', 'Ano_Constr', 'Ano_Rehabi','r_area','geometry']
         self.polygons_gdf = gpd.read_file(self.file_path, index_col="ID")
+        print(self.polygons_gdf.head())
         self.polygons_gdf = self.polygons_gdf[col_of_interest]
 
     def calculate_segment_length_and_orientation(self, start_x, start_y, end_x, end_y):
@@ -166,7 +167,8 @@ if __name__ == "__main__":
     analyser = FacadeAnalyser()
     analyser.load_polygons()
     # Merge height data if available
-    height_data_path = os.path.join(analyser.base_dir, 'height.geojson')
+    #height_data_path = os.path.join(analyser.base_dir, 'height.geojson')
+    height_data_path = os.path.join(os.getcwd(), "vector","buildings_footprint")
     if os.path.exists(height_data_path):
         gdf_height = gpd.read_file(height_data_path).round(4)
         analyser.polygons_gdf = analyser.polygons_gdf.merge(

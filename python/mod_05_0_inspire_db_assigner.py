@@ -139,11 +139,13 @@ class InspireDBAssigner:
             lambda x: self.calculate_cooling_value(x.f_v_ratio, x.year_constr, 'consumption'), axis=1)
         self.data['H_CO2_iNSPiRE'] = self.data.apply(
             lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_constr, 'co2'), axis=1)
+        print(f"cols: {self.data.columns}")
 
     def save(self, filename='05_buildings_with_energy_and_co2_values.geojson'):
         self.data.to_file(os.path.join(self.PATH, filename), driver='GeoJSON')
         print(f"Data saved to {filename}")
 
+    
 
 # Example usage:
 # assigner = InspireDBAssigner()

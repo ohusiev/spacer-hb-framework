@@ -5,17 +5,23 @@ import os, yaml
 import numpy as np
 
 class SelfConsumptionEstimator:
-    def __init__(self, data_struct_file, rayon, pv_pct=0.25):
+    def __init__(self, data_struct_file, district, pv_pct=0.25):
         # INPUT FILES:
         with open(data_struct_file, 'r', encoding="utf-8") as f:
             self.data_struct = yaml.safe_load(f)
-        self.rayon = rayon.lower()
-        self.work_dir = self.data_struct[self.rayon]['work_dir']
+        self.district = district.lower()
+        self.work_dir = self.data_struct[self.district]['work_dir']
         self.pv_pct = pv_pct
         self.no_pv_pct = 1 - pv_pct
 
         # Load the dataframes of aggregated consumption profiles
         self.aggregated_profiles_file_path = 'data/04_energy_consumption_profiles/'
+        if __name__ == "__main__":
+            temp_path =os.getcwd()
+            temp_path = temp_path.split('python')[0]
+            self.aggregated_profiles_file_path = os.path.join(temp_path, self.aggregated_profiles_file_path)
+            self.work_dir = os.path.join(temp_path, self.work_dir)
+
 
         self.df_aggregated_profiles = pd.read_csv(
             os.path.join(self.aggregated_profiles_file_path, f'dwell_share_{self.pv_pct}/04_2_aggregated_1h_profiles_with_pv_dwell_share_{self.pv_pct}.csv'),
@@ -30,9 +36,9 @@ class SelfConsumptionEstimator:
         self.df_aggregated_profiles_no_pv.set_index('Time', inplace=True)
 
         # Load the pv generation aggregated profile
-        pv_file_path = os.path.join("02_pv_calc_from_bond_rooftop/", self.work_dir, "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx")
+        pv_file_path = os.path.join( self.work_dir, "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx")
         self.pv_df = pd.read_excel(pv_file_path, sheet_name='Otxarkoaga')
-        self.pv_df_hourly = pd.read_csv('02_pv_calc_from_bond_rooftop/data/Otxarkoaga/pv_generation_hourly.csv')
+        self.pv_df_hourly = pd.read_csv( '02_pv_calc_rooftop/data/Otxarkoaga/pv_generation_hourly.csv' if __name__ =="__main__" else 'python/02_pv_calc_rooftop/data/Otxarkoaga/pv_generation_hourly.csv' )
 
         # Reassigning the time range for the pv generation data to be aligned with the aggregated profiles
         time_range = pd.date_range(start='2021-01-01 00:00:00', end='2021-12-31 23:00:00', freq='H')
@@ -194,12 +200,14 @@ class SelfConsumptionEstimator:
 # Example usage:
 if __name__ == "__main__":
     estimator = SelfConsumptionEstimator(
-        data_struct_file='02_pv_calc_from_bond_rooftop/pv_energy.yml',
-        rayon="otxarkoaga",
+        data_struct_file='pv_energy.yml',
+        district="otxarkoaga",
         pv_pct=0.25
     )
-    estimator.time_alignment()
+    #estimator.time_alignment()
     estimator.run_self_consumption()
     monthly_agg, monthly_agg_no_pv = estimator.save_aggregated_profiles()
     pv_census_aggreg_df = estimator.save_pv_profiles()
     estimator.save_net_balance(monthly_agg, pv_census_aggreg_df)
+
+# %%

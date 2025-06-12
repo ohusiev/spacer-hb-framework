@@ -272,7 +272,7 @@ class RooftopAnalysisAutomatiser:
         self.join_building_with_census()
         self.fix_rooftop_geometries()
         self.calculate_surface_points_and_xy()
-        #self.join_surface_with_buildings()
+        self.join_surface_with_buildings()
         self.final_fid_join_and_save()
         self.fallback_mean_coords_for_null_xy()
         self.map_and_fill_null_xy()
@@ -287,7 +287,7 @@ if __name__ == "__main__":
         suffix="_v2",
         crs="epsg:25830",
         census_id="census_id",
-        building_ids=["build_id", "osm_id"],
+        building_ids=["build_id"],#, "osm_id"],
         filter_expression=''  # e.g. '"AREA" > 2'
     )
     automator.run()
