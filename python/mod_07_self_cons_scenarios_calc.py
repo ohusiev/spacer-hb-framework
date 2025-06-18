@@ -6,9 +6,9 @@ import os
 import yaml
 import matplotlib.pyplot as plt
 import seaborn as sns
-from util_func import UtilFunctions
-from util_func import PlotFunctions
-from util_func import PVAnalysis
+from .util_func import UtilFunctions
+from .util_func import PlotFunctions
+from .util_func import PVAnalysis
 
 class SelfConsumptionAnalysis:
     def __init__(self, root):

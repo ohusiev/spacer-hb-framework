@@ -2,7 +2,9 @@
 import pandas as pd
 import os
 import sys
-import python.util_func as util_func
+import os
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+import util_func
 import matplotlib.pyplot as plt
 
 class EnercomEstimator:
@@ -291,23 +293,22 @@ class EnercomEstimator:
         ax.legend(loc='best', bbox_to_anchor=(1, 1)).set_visible(True)
         plt.show()
 #%%
-# Example usage:
-estimator = EnercomEstimator(pv_pct=0.25,root=r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework",ec_price_coef=0.5)
-estimator.prepare_energy_data()
-estimator.calculate_costs()
-estimator.export_to_excel()
-estimator.analyze_and_plot()
-estimator.monthly_sensitivity_analysis()
-estimator.save_sensitivity()
+if __name__ == "__main__":
+    # Example usage
+    estimator = EnercomEstimator(pv_pct=0.25, root=r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework", ec_price_coef=0.5)
+    estimator.prepare_energy_data()
+    estimator.calculate_costs()
+    estimator.export_to_excel()
+    estimator.analyze_and_plot()
+    estimator.monthly_sensitivity_analysis()
+    estimator.save_sensitivity()
+    # Test plotting function
+    data = {
+        'C_cov_b_PV': [1, 2, 3, 4],
+        'C_cov_b_nPV': [4, 3, 2, 1],
+        'C_ec_b_PV': [2, 3, 1, 4],
+        'C_ec_b_nPV': [3, 1, 4, 2]
+    }
+    df = pd.DataFrame(data)
+    EnercomEstimator.plot_ec_costs(df)
 
-# Test plotting function
-data = {
-    'C_cov_b_PV': [1, 2, 3, 4],
-    'C_cov_b_nPV': [4, 3, 2, 1],
-    'C_ec_b_PV': [2, 3, 1, 4],
-    'C_ec_b_nPV': [3, 1, 4, 2]
-}
-df = pd.DataFrame(data)
-EnercomEstimator.plot_ec_costs(df)
-
-# %%

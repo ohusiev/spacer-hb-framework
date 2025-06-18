@@ -12,6 +12,7 @@ import python.mod_04_3_self_consump_estimation as self_cons_estimator
 import python.mod_05_0_inspire_db_assigner as inspire_db_assigner
 import python.mod_05_1_simple_kpi_calc as kpi_calc
 import python.mod_05_2_test_economic_analysis as economic_analysis
+import python.mod_06_enercom_estimator as enercom_estimator
 import python.mod_07_self_cons_scenarios_calc as self_cons_scenarios_calc 
 import python.mod_07_geo_visualization as geo_visualization
 
@@ -191,13 +192,12 @@ assigner.process()
 # MUDULE 4.2 04_energy_profile_aggregation
 PATH = r"C:\\Users\\Oleksandr-MSI\\Documentos\\GitHub\\spacer-hb-framework\\LoadProGen\\Bilbao"
 # Instantiate and use the class
-#pv_pct_list = [0.25, 0.5, 0.75, 1]
-#for pv_pct in pv_pct_list:
-profile_mapping = {
+pv_pct_list = [0.25, 0.5, 0.75, 1]
+profile_names= {
     #"1P_Occup": "ND1 Single Occupied Dwellings",
     "1P_Work": "CHR07 Single with work",
     "Stu_Work": "CHR13 Student with Work",
-    "1P_Ret": "CHR30 Single, Retired Man/Woman", #redo profile, it has 1 min time step - DONE
+    "1P_Ret": "CHR30 Single, Retired Man/Woman",
     #"2P_Occup": "ND2 Two People Occupied Dwellings",
     "Couple_Work": "CHR01 Couple both at Work",
     "Couple_65+": "CHR16 Couple over 65 years",
@@ -211,20 +211,20 @@ profile_mapping = {
     "Fam_3Ch_1Wrk1Hm": "CHR20 Family one at work, one work home, 3 children",
     "Fam_3Ch_HmWrk": "CHR59 Family, 3 children, parents without work/work at home",
     #"6-9P_Occup": "ND6-9 Six to Nine People Occupied Dwellings",
-    "6-9P_Occup_id_1": "id_1", #CHR15 Multigenerational Home: working couple, 2 children, 2 seniors 
-    #"6-9P_Occup_id_2": "id_1",
+    "6-9P_Occup_id_1": "id_1",
     "6-9P_Occup_id_3": "id_1",
-    #"6-9P_Occup_id_4": "id_1",
     #"10+P_Occup": "ND10 (Ten or more People Occupied Dwellings)",
     "10+P_Occup_id_1": "id_1",
     "10+P_Occup_id_2": "id_1"
 }
-aggregator = profile_aggregation.EnergyProfileAggregator(PATH, profile_mapping, pv_pct=1)
-#aggregator.plot_profiles()
-result_pv_df, result_no_pv_df = aggregator.save_results()
+for pv_pct in pv_pct_list:
+    aggregator = profile_aggregation.EnergyProfileAggregator(PATH, profile_names, pv_pct=pv_pct)
+    #aggregator.plot_profiles()
+    result_pv_df, result_no_pv_df = aggregator.save_results()
 #%% 
 # MUDULE 4.3 04_self_consump_estimation
-pv_pct_list = [0.25, 0.5,0.75,1]
+
+# pv_pct_list = [0.25, 0.5,0.75,1]
 for pv_pct in pv_pct_list:
     estimator = self_cons_estimator.SelfConsumptionEstimator(
         data_struct_file='python/pv_energy.yml',
@@ -314,6 +314,15 @@ for scenario in SCENARIO:
 analysis.save_to_excel("06_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic+EUAC_ORIGIN")
 analysis.plot_neighbourhood("output_filename",euac_col="Envelope_EUAC")
 analysis.plot_neighbourhood("output_filename",euac_col="EUAC")
+#%%
+# MODULE 6 mod_06_enercom_estimator.py
+estimator = enercom_estimator.EnercomEstimator(pv_pct=0.25,root=r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework",ec_price_coef=0.5)
+estimator.prepare_energy_data()
+estimator.calculate_costs()
+estimator.export_to_excel()
+estimator.analyze_and_plot()
+estimator.monthly_sensitivity_analysis()
+estimator.save_sensitivity()
 
 #%% 
 # MODULE 07 mod_07_self-cons_scenarios_calc
