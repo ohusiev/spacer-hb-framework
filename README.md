@@ -54,7 +54,7 @@ While the public announecement of AI generative tool has marked a new era with t
 ## 2. Structure, Input parameters and naming standartization
 
 
-IMPORTANT: It is important to ensure the same coordinate system from the beginning!
+> **!! IMPORTANT: It is important to ensure the same coordinate system from the beginning !!**
 ### 2.1 Set-up directory tree 
 
 > **Workig directory set-up by default built in a simple way, i.e it is assumed to be a single project (i.e: single Case Study per root directory tree).**
@@ -174,4 +174,5 @@ What it is about: Joining non-spatial data (CSV) to a GeoDataFrame; Calculating 
         !!! mod_07_self-cons_scenarios_calc.py
         mod_07_geo_visualization.py
         QGIS +filters
+
 

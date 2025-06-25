@@ -9,7 +9,7 @@ from whitebox_workflows import WbEnvironment
 
 
 class RooftopAnalysisAutomatiserPython:
-    def __init__(self, path, root_dir, case_study_name, suffix, crs, census_id, building_ids):
+    def __init__(self, path, root_dir, case_study_name, suffix, crs, census_id, building_ids,building_footprint_path,statistical_census_path, lidar_path):
         self.path = Path(path)
         self.root_dir = root_dir
         self.case_study_name = case_study_name + suffix if suffix else case_study_name
@@ -25,9 +25,9 @@ class RooftopAnalysisAutomatiserPython:
         self.temp_files_folder.mkdir(parents=True, exist_ok=True)
 
         # Input paths
-        self.lidar_path = os.path.join(self.i_folder, "lidar", "otxarkoaga_lidar_cliped.las")
-        self.building_footprint_path = os.path.join(self.i_folder, "vector", "buildings_footprint", "etrs_25830", "buildings_inspire_clip_oxarkoaga+census.shp")
-        self.statistical_census_path = os.path.join(self.i_folder, "vector", "stat_census", "Otxarkoaga.shp")
+        self.lidar_path = lidar_path #os.path.join(self.i_folder, "lidar", "otxarkoaga_lidar_cliped.las")
+        self.building_footprint_path = building_footprint_path#os.path.join(self.i_folder, "vector", "buildings_footprint", "etrs_25830", "buildings_inspire_clip_oxarkoaga+census.shp")
+        self.statistical_census_path = statistical_census_path #os.path.join(self.i_folder, "vector", "stat_census", "Otxarkoaga.shp")
         #self.rooftop_analysis_path = self.i_folder / f"vector/whitebox_tool/wb_rt_analysis_{self.case_study_name}_segments.shp"
 
         # Output paths
@@ -122,14 +122,21 @@ class RooftopAnalysisAutomatiserPython:
 #%%
 # Example usage (disabled here to avoid execution in this environment)
 if __name__ == "__main__":
+    path="C:/Users/Oleksandr-MSI/Documentos/GitHub/spacer-hb-framework"
+    lidar_path = os.path.join(path, "lidar", "otxarkoaga_lidar_cliped.las")
+    building_footprint_path = os.path.join(path, "vector", "buildings_footprint", "etrs_25830", "buildings_inspire_clip_oxarkoaga+census.shp")
+    statistical_census_path = os.path.join(path, "vector", "stat_census", "Otxarkoaga.shp")
     automator = RooftopAnalysisAutomatiserPython(
-        path="C:/Users/Oleksandr-MSI/Documentos/GitHub/spacer-hb-framework",
+        path=path,
         root_dir="pyqgis_wb_automatiser",
         case_study_name="bilbao_otxarkoaga",
         suffix="_v2",
         crs="epsg:25830",
         census_id="census_id",
-        building_ids=["build_id"]
+        building_ids=["build_id"],
+        building_footprint_path=building_footprint_path,
+        statistical_census_path=statistical_census_path,
+        lidar_path=lidar_path
      )
     automator.run()
 

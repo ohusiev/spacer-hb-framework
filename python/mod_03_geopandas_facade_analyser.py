@@ -9,12 +9,11 @@ from shapely.geometry import LineString
 class FacadeAnalyser:
     def __init__(self, base_dir=None, file_path=None):
         if base_dir is None:
-            #self.base_dir = os.path.join(os.getcwd(), "vector", "buildings_footprint")
             self.base_dir = os.path.join(os.getcwd(), "data")
-        else:
-            self.base_dir = base_dir
+        if __name__ == "__main__":
+            self.base_dir = os.path.join(base_dir, "data")
         if file_path is None:
-            self.file_path = os.path.join(self.base_dir,"01_footprint_s_area_wb_rooftop_analysis.geojson")# "etrs_25830/buildings_inspire_clip_oxarkoaga+census.shp")
+            self.file_path = os.path.join(self.base_dir,"01_footprint_r_area_wb_rooftop_analysis.geojson")
         else:
             self.file_path = file_path
         self.polygons_gdf = None
@@ -30,7 +29,7 @@ class FacadeAnalyser:
         }
 
     def load_polygons(self, build_id='build_id'):
-        col_of_interest = [build_id, 'census_id', 'Codigo_Pol', 'Codigo_Par', 'building', 'Numero_Alt', 'Ano_Constr', 'Ano_Rehabi','r_area','geometry']
+        col_of_interest = [build_id, 'census_id', 'building', 'year_const', 'r_area','geometry'] 
         self.polygons_gdf = gpd.read_file(self.file_path, index_col="ID")
         print(self.polygons_gdf.head())
         self.polygons_gdf = self.polygons_gdf[col_of_interest]
@@ -161,14 +160,33 @@ class FacadeAnalyser:
         surface_area = row[surface_area_column]
         volume = row[volume_column]
         return round(surface_area / volume, 4)
+
+    def recalculate_surface_area(self, polygons_gdf):
+        # Recalculate undetached surface area
+        cols = ['fa_area_N', 'fa_area_NE', 'fa_area_E', 'fa_area_SE',
+                'fa_area_S', 'fa_area_SW', 'fa_area_W', 'fa_area_NW']
+        polygons_gdf['Total_fa_area'] = polygons_gdf[cols].sum(axis=1).round(2)
+        return polygons_gdf
+
+    def assign_window_areas(self, polygons_gdf, windows_to_wall_ratio=0.24):
+        # Assign window areas based on windows-to-wall ratio
+        polygons_gdf["Tot_w2wall"] = windows_to_wall_ratio
+        polygons_gdf["Tot_window_area"] = polygons_gdf["Total_fa_area"] * polygons_gdf["Tot_w2wall"]
+        polygons_gdf["Total_wall_area"] = polygons_gdf["Total_fa_area"] - polygons_gdf["Tot_window_area"]
+        return polygons_gdf
+
+    def calculate_f_v_ratio(self, row, surface_area_column='Total_fa_area', volume_column='volume'):
+        surface_area = row[surface_area_column]
+        volume = row[volume_column]
+        return round(surface_area / volume, 4)
 #%%
 # Example execution steps:
 if __name__ == "__main__":
-    analyser = FacadeAnalyser()
+    base_dir = "C:\\Users\\Oleksandr-MSI\\Documentos\\GitHub\\spacer-hb-framework\\"
+    analyser = FacadeAnalyser(base_dir=base_dir)
     analyser.load_polygons()
     # Merge height data if available
-    #height_data_path = os.path.join(analyser.base_dir, 'height.geojson')
-    height_data_path = os.path.join(os.getcwd(), "vector","buildings_footprint")
+    height_data_path = os.path.join(base_dir, "vector","buildings_footprint", 'height.geojson')
     if os.path.exists(height_data_path):
         gdf_height = gpd.read_file(height_data_path).round(4)
         analyser.polygons_gdf = analyser.polygons_gdf.merge(
@@ -178,6 +196,7 @@ if __name__ == "__main__":
     # Calculate area and perimeter
     analyser.polygons_gdf['f_area'] = round(analyser.polygons_gdf['geometry'].area, 4)
     analyser.polygons_gdf['f_perimeter'] = round(analyser.polygons_gdf['geometry'].length, 4)
+
     analyser.polygons_gdf['n_floorsEstim'] = (analyser.polygons_gdf['h_mean'] / 3.0).round(0)
     analyser.polygons_gdf['h_estim'] = analyser.polygons_gdf['n_floorsEstim'] * 3.0 + 1
 
@@ -193,6 +212,7 @@ if __name__ == "__main__":
     analyser.polygons_gdf['volume'] = analyser.polygons_gdf.apply(analyser.calculate_volume, axis=1)
     analyser.polygons_gdf['s_v_ratio'] = analyser.polygons_gdf.apply(analyser.calculate_s_v_ratio, axis=1).round(4)
 
+
     # Subtract facade lengths
     result_df = analyser.subtract_facade_len_from_adjusted_sides(facades_per_orientation_len_df, adjusted_facades_len_df)
 
@@ -203,58 +223,13 @@ if __name__ == "__main__":
         result_df[f"fa_area_{value}"] = [0 if x < 0.1 else x for x in result_df[key]] * result_df['h_mean']
         print(f"The length of facade less than 1m assigned to 0, for orientation {key} number of records is: {result_df[key].loc[result_df[key] < 1].count()}")
     print(f"Facade area per orientation calculated successfully.")
-
+    
+    result_df=analyser.recalculate_surface_area(result_df)
+    result_df=analyser.assign_window_areas(result_df, windows_to_wall_ratio=0.24)
+    result_df['f_v_ratio'] = result_df.apply(analyser.calculate_f_v_ratio, axis=1).round(4)
     # Save results if needed
-    result_df.to_file("data/03_footprint_subtracted_facades_and_s_v_volume_area.geojson", driver="GeoJSON", index=False)
-    result_df.drop(columns=['geometry']).to_csv("data/03_footprint_subtracted_facades_and_s_v_volume_area.csv", index=False)
-
-    # Example of how to use the FacadeAnalyser class from another script
-
-    # from 03_geopandas_facade_analyser import FacadeAnalyser
-
-    # Initialize the analyser (optionally provide base_dir or file_path)
-    analyser = FacadeAnalyser()
-
-    # Load polygons
-    analyser.load_polygons()
-
-    # (Optional) Merge height data if available
-    height_data_path = os.path.join(analyser.base_dir, 'height.geojson')
-    if os.path.exists(height_data_path):
-        gdf_height = gpd.read_file(height_data_path).round(4)
-        analyser.polygons_gdf = analyser.polygons_gdf.merge(
-            gdf_height[['build_id', 'h_mean', 'h_stdev', 'h_min', 'h_max']],
-            on='build_id', how='left'
-        )
-
-    # Calculate area and perimeter
-    analyser.polygons_gdf['f_area'] = round(analyser.polygons_gdf['geometry'].area, 4)
-    analyser.polygons_gdf['f_perimeter'] = round(analyser.polygons_gdf['geometry'].length, 4)
-
-    # Calculate facade lengths per orientation
-    facades_per_orientation_len_df = analyser.length_per_orientation()
-
-    # Find neighbors and their lengths per orientation
-    analyser.list_neighboring_polygons()
-    adjusted_facades_len_df = analyser.length_of_neighbors_per_orientation()
-
-    # Calculate surface area, volume, and s/v ratio
-    analyser.polygons_gdf['surface_area'] = analyser.polygons_gdf.apply(analyser.calculate_surface_area, axis=1)
-    analyser.polygons_gdf['volume'] = analyser.polygons_gdf.apply(analyser.calculate_volume, axis=1)
-    analyser.polygons_gdf['s_v_ratio'] = analyser.polygons_gdf.apply(analyser.calculate_s_v_ratio, axis=1).round(4)
-
-    # Subtract facade lengths
-    result_df = analyser.subtract_facade_len_from_adjusted_sides(facades_per_orientation_len_df, adjusted_facades_len_df)
-
-    # Calculate facade area per orientation
-    fadace_length_cols = {'len_N': 'N', 'len_NE': 'NE', 'len_E': 'E',
-                          'len_SE': 'SE', 'len_S': 'S', 'len_SW': 'SW', 'len_W': 'W', 'len_NW': 'NW'}
-    for key, value in fadace_length_cols.items():
-        result_df[f"fa_area_{value}"] = [0 if x < 0.1 else x for x in result_df[key]] * result_df['h_mean']
-
-    # Save results if needed
-    result_df.to_file("data/03_footprint_subtracted_facades_and_s_v_volume_area.geojson", driver="GeoJSON", index=False)
-    result_df.drop(columns=['geometry']).to_csv("data/03_footprint_subtracted_facades_and_s_v_volume_area.csv", index=False)
+    result_df.to_file(os.path.join(base_dir, "data/03_footprint_subtracted_facades_and_s_v_volume_area.geojson"), driver="GeoJSON", index=False)
+    result_df.drop(columns=['geometry']).to_csv(os.path.join(base_dir, "data/03_footprint_subtracted_facades_and_s_v_volume_area.csv"), index=False)
 
 #%% Functions format and round the numerical columns to 2 decimal places and convert them to strings with formatting
 # Round the numerical columns to 2 decimal places and convert them to strings with formatting

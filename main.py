@@ -11,12 +11,10 @@ import python.mod_04_2_energy_profile_aggregation as profile_aggregation
 import python.mod_04_3_self_consump_estimation as self_cons_estimator
 import python.mod_05_0_inspire_db_assigner as inspire_db_assigner
 import python.mod_05_1_simple_kpi_calc as kpi_calc
-import python.mod_05_2_test_economic_analysis as economic_analysis
+import python.mod_05_2_economic_analysis as economic_analysis
 import python.mod_06_enercom_estimator as enercom_estimator
 import python.mod_07_self_cons_scenarios_calc as self_cons_scenarios_calc 
 import python.mod_07_geo_visualization as geo_visualization
-
-
 
 class DefaultPathsAndFileNames:
     """
@@ -30,7 +28,7 @@ class DefaultPathsAndFileNames:
         Args:
             excel_path (str, optional): Path to the Excel file containing variable names.
             sheet_name (str, optional): Name of the sheet to read from the Excel file.
-        """
+        
         self.BASE_DIR = "your_custom_name"  # Replace with your base directory
         self.data_dir = f"{self.BASE_DIR}/data"
         self.lidar_dir = f"{self.BASE_DIR}/lidar"
@@ -42,24 +40,28 @@ class DefaultPathsAndFileNames:
         self.BUILDING_FOOTPRINT_FILE = "building_footprint.shp"
         self.STATISTICAL_CENSUS_FILE = "statistical_census.shp"
         self.WHITEBOX_RT_ANALYSIS_FILE = "wb_rt_analysis.shp"
-
+        """
         # Extract file names from Excel and set them as attributes
         if excel_path and sheet_name:
             df=self._set_file_names_from_excel(excel_path, sheet_name)
             print(df)
-            self.PATH = os.getcwd() if pd.isna(df.loc['PATH', 'File']) else f"{df.loc['PATH', 'File']}"
-            self.LIDAR_FILE = f"{df.loc['LIDAR_FILE', 'File']}"
-            self.BUILDING_FOOTPRINT_FILE = f"{df.loc['BUILDING_FOOTPRINT_FILE','File']}"
-            self.STATISTICAL_CENSUS_FILE = f"{df.loc['STATISTICAL_CENSUS_FILE','File']}"
-            self.WHITEBOX_RT_ANALYSIS_FILE = f"{df.loc['WHITEBOX_RT_ANALYSIS_FILE','File']}"
+            self.PATH = os.getcwd() if pd.isna(df.loc['PATH', 'Name']) else f"{df.loc['PATH', 'Name']}"
+            self.LIDAR_FILE = f"{df.loc['LIDAR_FILE', 'Name']}"
+            self.BUILDING_FOOTPRINT_FILE = f"{df.loc['BUILDING_FOOTPRINT_FILE','Name']}"
+            self.STATISTICAL_CENSUS_FILE = f"{df.loc['STATISTICAL_CENSUS_FILE','Name']}"
+            self.HEATMAPS_HDEM_RASTER = f"{df.loc['HEATMAPS_HDEM_RASTER','Name']}" if 'HEATMAPS_HDEM_RASTER' in df.index else None
+            self.WHITEBOX_RT_ANALYSIS_FILE = f"{df.loc['WHITEBOX_RT_ANALYSIS_FILE','Name']}"
+            self.LPG_FILES_DIR = f"{df.loc['LPG_FILES_DIR','Name']}" if 'LPG_FILES_DIR' in df.index else "LoadProGen"
+            self.ROOFTOP_FILE = f"{df.loc['ROOFTOP_FILE','Name']}" if 'ROOFTOP_FILE' in df.index else None
+            self.SEGMENT_FILE = f"{df.loc['SEGMENT_FILE','Name']}" if 'SEGMENT_FILE' in df.index else None
 
             #Print the file names for demonstration
-            print("File names from Excel:\n")
-            print(f"PATH: {self.PATH}")
-            print(f"LIDAR_FILE: {self.LIDAR_FILE}")
-            print(f"BUILDING_FOOTPRINT_FILE: {self.BUILDING_FOOTPRINT_FILE}")
-            print(f"STATISTICAL_CENSUS_FILE: {self.STATISTICAL_CENSUS_FILE}")
-            print(f"WHITEBOX_RT_ANALYSIS_FILE: {self.WHITEBOX_RT_ANALYSIS_FILE}")
+            #print("File names from Excel:\n")
+            #print(f"PATH: {self.PATH}")
+            #print(f"LIDAR_FILE: {self.LIDAR_FILE}")
+            #print(f"BUILDING_FOOTPRINT_FILE: {self.BUILDING_FOOTPRINT_FILE}")
+            #print(f"STATISTICAL_CENSUS_FILE: {self.STATISTICAL_CENSUS_FILE}")
+            #print(f"WHITEBOX_RT_ANALYSIS_FILE: {self.WHITEBOX_RT_ANALYSIS_FILE}")
 
     def get(self, key):
         """
@@ -92,48 +94,75 @@ class DefaultPathsAndFileNames:
             print(f"Error reading Excel file: {e}")
     
 #%%
+#GLOBAL VARIABLES
+PATH = os.getcwd() 
+INPUT_FILE="00_input_data.xlsx" 
 
-""" 
-pivot_rooftop_analysis = importlib.import_module("01_pivot_rooftop_data")
-pv_rooftop_analysis = importlib.import_module("02_pv_calc_rooftop.pv_power_month")
-
-facade_analyser = importlib.import_module("03_geopandas_facade_analyser")
-ener_cons_profile_assigner = importlib.import_module("04_ener_consum_profile_assigner")
-profile_aggregation = importlib.import_module("04_energy_profile_aggregation")
-self_cons_estimator = importlib.import_module("04_self_consump_estimation")
-
-inspire_db_assigner = importlib.import_module("05_inspire_db_assigner")
-"""
-#%%
-# Example usage
-default_paths = DefaultPathsAndFileNames(excel_path='241211_econom_data.xlsx', sheet_name="file_names")
-print(default_paths.get("BASE_DIR"))  # Access the base directory
+default_paths = DefaultPathsAndFileNames(excel_path=INPUT_FILE, sheet_name="file_names")
 #get a dataframe with the file names
 print(default_paths.get("LIDAR_FILE"))  # Access the LIDAR file name
-
-#%% MODULE 1 00 wb_automatiser
+print(default_paths.get("LPG_FILES_DIR"))
+print(default_paths.get("HEATMAPS_HDEM_RASTER"))  # Access the building footprint file name
+#%%
+# Naming for attributes of the columns in the dataframes
+names = {
+    "build_id": "unique building identifier",
+    "census_id": "unique census identifier",
+    "year_const": "year of construction of building",
+    "building": "type of building",
+    "height": "height of building, m", # if available
+    "r_area": "rooftop area, m2"
+}
+# ADJUST YOUR NAMING
+YOUR_BUILDING_ID = "build_id"  # Unique building identifier
+YOUR_CENSUS_ID = "census_id"  # Unique census identifier
+YOUR_YEAR_CONST = "year_const"  # Year of construction of building
+YOUR_BUILDING = "building"  # Type of building
+YOUR_HEIGHT = "height"  # Height of building, m
+# RENAME your data column sot standardize
+data = pd.read_csv("your_data.csv")  # Load your data)
+data.rename(columns={
+    "your_building_id": YOUR_BUILDING_ID,
+    "your_census_id": YOUR_CENSUS_ID,
+    "your_year_constr": YOUR_YEAR_CONST,
+    "your_building": YOUR_BUILDING,
+    "your_height": YOUR_HEIGHT,
+})
+#%%
+# MODULE 1 00 wb_automatiser
 wb_automator = wb_automator.RooftopAnalysisAutomatiserPython(
-    path="C:/Users/Oleksandr-MSI/Documentos/GitHub/spacer-hb-framework",
+    path=PATH,
     root_dir="pyqgis_wb_automator",
     case_study_name="bilbao_otxarkoaga",
     suffix="_v2",
     crs="epsg:25830",
     census_id="census_id",
-    building_ids=["build_id"]
+    building_ids=["build_id"],
+    building_footprint_path=os.path.join(PATH, "vector", "buildings_footprint", "etrs_25830", default_paths.get("BUILDING_FOOTPRINT_FILE")),
+    statistical_census_path=os.path.join(PATH, "vector", "stat_census", default_paths.get("STATISTICAL_CENSUS_FILE")),
+    lidar_path=os.path.join(PATH, "lidar", default_paths.get("LIDAR_FILE")),
     )
 wb_automator.run()
-# 
-# 
 #%% 
 # MODULE 1 01_pivot_rooftop_data
-
-rt = pivot_rooftop_analysis.PivotRooftopAnalysis(file_dir=os.getcwd(),path_to_wb_rooftop_analysis='pyqgis_wb_automator\\bilbao_otxarkoaga_v2\\00_wb_rt_analysis_bilbao_otxarkoaga_v2_segments_xy_coord.geojson', path_to_buildings_footprint='vector\\buildings_footprint\\etrs_25830\\buildings_inspire_clip_oxarkoaga+census.shp')
+azimuth_categories = {
+    'roof_N': (337.5, 22.5),
+    'roof_NE': (22.5, 60),
+    'roof_E': (60, 111),
+    'roof_SE': (111, 162),
+    'roof_S': (162, 198),
+    'roof_SW': (198, 249),
+    'roof_W': (249, 300),
+    'roof_NW': (300, 337.5),
+    'flat_roof': (0, 0)
+}
+rt = pivot_rooftop_analysis.PivotRooftopAnalysis(file_dir=PATH,path_to_wb_rooftop_analysis='pyqgis_wb_automator\\bilbao_otxarkoaga_v2\\00_wb_rt_analysis_bilbao_otxarkoaga_v2_segments_xy_coord.geojson', path_to_buildings_footprint='vector\\buildings_footprint\\etrs_25830\\buildings_inspire_clip_oxarkoaga+census.shp')
 
 df_segments_wb_rooftop_analysis, gdf_building_footprint = rt.process_DataFrames()
 df_segments_wb_rooftop_analysis, building_footprint = rt.pivot_whitebox_rooftop_analysis(df_segment=df_segments_wb_rooftop_analysis, df_buildings_footprint=gdf_building_footprint, col_name="s_area", key_ids=["build_id", "census_id"])
 #%% 
 # MODULE 2 02_pv_calc_rooftop
-pv_calculator = pv_rooftop_analysis.PVMonthCalculator('241211_econom_data.xlsx')
+pv_calculator = pv_rooftop_analysis.PVMonthCalculator(INPUT_FILE)
 pv_calculator.calculate()
 #%% 
 # MODULE 3 03_geopandas_facade_analyser
@@ -143,7 +172,7 @@ analyser = facade_analyser.FacadeAnalyser()
 # Load polygons
 analyser.load_polygons()
 # (Optional) Merge height data if available
-#height_data_path = os.path.join(analyser.base_dir, 'height.geojson')
+# 'Codigo_Pol', 'Codigo_Par', 'building', 'Numero_Alt', 'Ano_Constr', 'Ano_Rehabi',
 height_data_path = os.path.join(os.getcwd(), "vector","buildings_footprint", "height.geojson")
 if os.path.exists(height_data_path):
     gdf_height = gpd.read_file(height_data_path).round(4)
@@ -154,9 +183,12 @@ if os.path.exists(height_data_path):
 # Calculate area and perimeter
 analyser.polygons_gdf['f_area'] = round(analyser.polygons_gdf['geometry'].area, 4)
 analyser.polygons_gdf['f_perimeter'] = round(analyser.polygons_gdf['geometry'].length, 4)
-analyser.polygons_gdf['n_floorsEstim'] = (analyser.polygons_gdf['h_mean'] / 3.0).round(0)
-analyser.polygons_gdf['h_estim'] = analyser.polygons_gdf['n_floorsEstim'] * 3.0 + 1
 
+# Calculate mean height if not provided
+print("Estimated num of floors `n_floorsEstim` calculated as h_mean / 3.0")
+analyser.polygons_gdf['n_floorsEstim'] = (analyser.polygons_gdf['h_mean'] / 3.0).round(0)
+print("Estimated height `h_estim` calculated as n_floorsEstim * 3.0 + 1")
+analyser.polygons_gdf['h_estim'] = analyser.polygons_gdf['n_floorsEstim'] * 3.0 + 1
 
 # Calculate facade lengths per orientation
 facades_per_orientation_len_df = analyser.length_per_orientation()
@@ -178,19 +210,43 @@ fadace_length_cols = {'len_N': 'N', 'len_NE': 'NE', 'len_E': 'E',
                         'len_SE': 'SE', 'len_S': 'S', 'len_SW': 'SW', 'len_W': 'W', 'len_NW': 'NW'}
 for key, value in fadace_length_cols.items():
     result_df[f"fa_area_{value}"] = [0 if x < 0.1 else x for x in result_df[key]] * result_df['h_mean']
+    print(f"The length of facade less than 1m assigned to 0, for orientation {key} number of records is: {result_df[key].loc[result_df[key] < 1].count()}")
+
+print(f"Facade area per orientation calculated successfully.")
+
+result_df=analyser.recalculate_surface_area(result_df)
+result_df=analyser.assign_window_areas(result_df, windows_to_wall_ratio=0.24)
+result_df['f_v_ratio'] = result_df.apply(analyser.calculate_f_v_ratio, axis=1).round(4)
 
 # Save results if needed
 result_df.to_file("data/03_footprint_subtracted_facades_and_s_v_volume_area.geojson", driver="GeoJSON", index=False)
 result_df.drop(columns=['geometry']).to_csv("data/03_footprint_subtracted_facades_and_s_v_volume_area.csv", index=False)
-
-
 #%% 
 # MUDULE 4.1 04_ener_consum_profile_assigner
-assigner = ener_cons_profile_assigner.EnergyConsumptionProfileAssigner()
+dwelling_percentages_dict = {
+    "single_dwellings": {
+    "percentage_of_people_20_24_live_alone": 0.5,
+    "percentage_of_people_25_65_live_alone": 0.25,
+    "percentage_of_people_65_live_alone": 0.33
+    },
+    "two_people_dwellings": {
+    "couples_25_65_without_kids": 0.11,
+    "couples_65_without_kids": 0.33,
+    "monoparental_25_65": 0.1
+    },
+    "three_five_people_dwellings": {
+    "couples_25_65_with_kids": 0.47,
+    "coeff_1_children": 0.46,
+    "coeff_2_children": 0.44,
+    "coeff_3_more_children": 0.1
+    }
+}
+assigner = ener_cons_profile_assigner.EnergyConsumptionProfileAssigner(
+    dwelling_percentages_dict=dwelling_percentages_dict)
 assigner.process()
 #%%
 # MUDULE 4.2 04_energy_profile_aggregation
-PATH = r"C:\\Users\\Oleksandr-MSI\\Documentos\\GitHub\\spacer-hb-framework\\LoadProGen\\Bilbao"
+LPG_FILES_FOLDER = os.path.join(PATH,"LoadProGen", default_paths.get("LPG_FILES_DIR"))
 # Instantiate and use the class
 pv_pct_list = [0.25, 0.5, 0.75, 1]
 profile_names= {
@@ -218,16 +274,14 @@ profile_names= {
     "10+P_Occup_id_2": "id_1"
 }
 for pv_pct in pv_pct_list:
-    aggregator = profile_aggregation.EnergyProfileAggregator(PATH, profile_names, pv_pct=pv_pct)
+    aggregator = profile_aggregation.EnergyProfileAggregator(LPG_FILES_FOLDER, profile_names, pv_pct=pv_pct)
     #aggregator.plot_profiles()
     result_pv_df, result_no_pv_df = aggregator.save_results()
 #%% 
 # MUDULE 4.3 04_self_consump_estimation
-
-# pv_pct_list = [0.25, 0.5,0.75,1]
 for pv_pct in pv_pct_list:
     estimator = self_cons_estimator.SelfConsumptionEstimator(
-        data_struct_file='python/pv_energy.yml',
+        work_dir="data",
         district="otxarkoaga",
         pv_pct=pv_pct
     )
@@ -241,14 +295,14 @@ for pv_pct in pv_pct_list:
 # MODULE 5.0 05_inspire_db_assigner
 heating_db_assigner = inspire_db_assigner.InspireDBAssigner()
 heating_db_assigner.load_data()
-heating_db_assigner.recalculate_surface_area()
-heating_db_assigner.assign_window_areas(windows_to_wall_ratio=0.24)
+#heating_db_assigner.recalculate_surface_area()
+#heating_db_assigner.assign_window_areas(windows_to_wall_ratio=0.24)
 heating_db_assigner.process()
 heating_db_assigner.save()
 
 # Load layers
-buildings = gpd.read_file('C:/Users/Oleksandr-MSI/Documentos/GitHub/spacer-hb-framework/data/05_buildings_with_energy_and_co2_values.geojson')
-h_dem = gpd.read_file('C:/Users/Oleksandr-MSI/Documentos/GitHub/spacer-hb-framework/vector/hm_raster_25830.shp')
+buildings = gpd.read_file(os.path.join(PATH, "data","05_buildings_with_energy_and_co2_values.geojson"))
+h_dem = gpd.read_file(os.path.join(PATH,"vector","hm_raster_25830.shp"))
 
 # Perform spatial join (predicate = intersects or within)
 joined = gpd.sjoin(buildings, h_dem[['HDemProj', 'geometry']], how='left', predicate='intersects')
@@ -257,17 +311,16 @@ joined = gpd.sjoin(buildings, h_dem[['HDemProj', 'geometry']], how='left', predi
 joined = joined[~joined.index.duplicated(keep='first')]
 
 # Export to GeoJSON
-joined.to_file('C:/Users/Oleksandr-MSI/Documentos/GitHub/spacer-hb-framework/data/05_buildings_with_energy_and_co2_values+HDemProj.geojson', driver='GeoJSON')
+joined.to_file(os.path.join(PATH, "data","05_buildings_with_energy_and_co2_values+HDemProj.geojson"), driver='GeoJSON')
 
 
 #%% 
 # MODULE 5.1 mod_05_1_simple_kpi_calc.py
 
-root = r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework"
-pv_file_name = "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx"
-cost_file_name = "241211_econom_data.xlsx"
+pv_file_name = "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx"
 
-analyzer = kpi_calc.EconomicKPIAnalyzer(root, pv_file_name, cost_file_name)
+
+analyzer = kpi_calc.EconomicKPIAnalyzer(PATH, pv_file_name, cost_file_name=INPUT_FILE)
 df_pv_filt = analyzer.prepare_facades()
 analyzer.plot_pv_generation()
 #%%
@@ -303,7 +356,7 @@ analyzer.save_economic_analysis(
 )
 
 #%% 
-# MODULE 5.2 mod_05_2_pv_power_hourly.py
+# MODULE 5.2 mod_05_2_economic_analysis 
 root = os.getcwd()  # or specify your root directory
 analysis = economic_analysis.EconomicAnalysis(root)
 analysis.run_analysis(CAL_REFERENCE_CASE=True)
@@ -311,26 +364,54 @@ for scenario in SCENARIO:
     for combination_id in COMBINATION_ID:
         analysis.run_analysis(SCENARIO=scenario, COMBINATION_ID=combination_id)
 
-analysis.save_to_excel("06_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic+EUAC_ORIGIN")
+analysis.save_to_excel("05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic+EUAC_ORIGIN")
 analysis.plot_neighbourhood("output_filename",euac_col="Envelope_EUAC")
 analysis.plot_neighbourhood("output_filename",euac_col="EUAC")
 #%%
 # MODULE 6 mod_06_enercom_estimator.py
-estimator = enercom_estimator.EnercomEstimator(pv_pct=0.25,root=r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework",ec_price_coef=0.5)
+ec_price_coef_list = [0.1, 0.25, 0.5]
+df_sensitivity_append = pd.DataFrame()
+for ec_price_coef in ec_price_coef_list:
+    for pv_pct in pv_pct_list:
+        estimator = enercom_estimator.EnercomEstimator(pv_pct=pv_pct, root=PATH, ec_price_coef=ec_price_coef)
+        estimator.prepare_energy_data()
+        estimator.calculate_costs()
+        estimator.export_to_excel()
+        df_estimator = estimator.analyze()
+        #estimator.plot_saving(df_estimator)
+        estimator.monthly_sensitivity_analysis()
+        estimator.save_sensitivity()
+        df_sensitivity_append = df_sensitivity_append.append(df_estimator)
+        
+    
+estimator.save_sensitivity(df_sensitivity_append)
+""" 
+estimator = enercom_estimator.EnercomEstimator(pv_pct=0.25,root=PATH,ec_price_coef=0.5)
+
 estimator.prepare_energy_data()
 estimator.calculate_costs()
 estimator.export_to_excel()
 estimator.analyze_and_plot()
 estimator.monthly_sensitivity_analysis()
 estimator.save_sensitivity()
+"""
+#%%
+import matplotlib.pyplot as plt
 
+
+df = df_sensitivity_append.reset_index()
+print ("Percentage of energy cost savings per scenario and share of associated with collective (direct) PV self-consumption in the census zone")
+estimator.plot_savings_distribution(df,values = "Savings, Dwell with PV, %", colormap='cividis')
+print ("Percentage of energy cost savings per scenario and share of dwellings not associated with collective (direct) PV self-consumption in the census zone")
+estimator.plot_savings_distribution(df,values = "Savings, Dwell without PV, %", colormap='copper')
 #%% 
 # MODULE 07 mod_07_self-cons_scenarios_calc
-self_cons_analysis = self_cons_scenarios_calc.SelfConsumptionAnalysis(root)
+self_cons_analysis = self_cons_scenarios_calc.SelfConsumptionAnalysis(PATH)
 self_cons_analysis.calculate_self_consumption()
 self_cons_analysis.calculate_per_dwelling()
 CENSUS_ID = 4802003011
 df_self_cons_calc_per_dwelling_filter, df_self_cons_pct_filer = self_cons_analysis.filter_by_census_id(CENSUS_ID)
+
 self_cons_analysis.plot_self_consumption_trends(
     df_self_cons_calc_per_dwelling_filter,
     df_self_cons_pct_filer,
@@ -346,7 +427,7 @@ self_cons_analysis.calculate_self_sufficiency()
 #%%
 # MODULE 07 mod_07_geo_visualization
 census_file = os.path.join(os.getcwd(), "vector", "stat_census", "Otxarkoaga.shp")
-data_file = os.path.join(os.getcwd(), "data", "06_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic+EUAC_ORIGIN_ADD_SHEET.xlsx")
+data_file = os.path.join(os.getcwd(), "data", "05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic+EUAC_ORIGIN_ADD_SHEET.xlsx")
 
 # Pass the desired filter value as an argument
 visualizer = geo_visualization.GeoHeatmapVisualizer(census_file, data_file, filter_value='Comb0ref_case', sheet_name="Sheet0")
@@ -360,7 +441,7 @@ visualizer.geo_heatmap_no_colorbar(column_1='NRPE_kWh_per_dwelling', column_2='E
 from python.pv_power_hourly import PVHourlyCalculator
 
 # Example usage
-params_file = '241211_econom_data.xlsx'  # Replace with your actual file path
+params_file = INPUT_FILE  # Replace with your actual file path
 calculator = PVHourlyCalculator(params_file)
 calculator.calculate_hourly_roofs()
 

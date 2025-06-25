@@ -5,29 +5,27 @@ import pandas as pd
 class Rooftops_Data():
     ''' Reading data on roof areas and slopes '''
     
-    def __init__(self, data_struct_file='pv_energy.yml', district='', show=False):
+    def __init__(self, data_struct_file='00_input_data.xlsx', district='', show=False):
         # read the data structure for districts
-        script_dir = os.path.dirname(__file__)
+        script_dir = os.getcwd()#os.path.dirname(__file__)
         file_path = os.path.join(script_dir, data_struct_file)
 
-        with open(file_path, 'r', encoding="utf-8") as f:
-            self.data_struct = yaml.safe_load(f)
+        #with open(file_path, 'r', encoding="utf-8") as f:
+        #    self.data_struct = yaml.safe_load(f)
         # list of districts
-        self.district_list = list(self.data_struct.keys())
+        #self.district_list = list(self.data_struct.keys())
         # normalize district name
         self.district = district.lower()
+        df_struct = pd.read_excel(data_struct_file, sheet_name='file_names',index_col=0)
         # check if the district is in the list
-        if self.district not in self.district_list:
-            print(f'Set the `district` argument of the `Rooftops_Data` class from the list {self.district_list}')
-            sys.exit(1)
         # build paths to data files
-        self.work_dir = self.data_struct[self.district]['work_dir']
-        self.rooftop_file = os.path.join(self.work_dir, 
-                                         self.data_struct[self.district]['rooftop_file'])
-        self.segment_file = os.path.join(self.work_dir, 
-                                         self.data_struct[self.district]['segment_file'])
+        self.work_dir = df_struct.loc['PV_WORK_DIR', "Name"]
+        self.rooftop_file = os.path.join(self.work_dir, df_struct.loc["ROOFTOP_FILE", "Name"])
+        self.segment_file = os.path.join(self.work_dir, df_struct.loc["SEGMENT_FILE", "Name"])
 
         f_name, f_ext = os.path.splitext(self.rooftop_file)
+        f_name = f_name.replace("01","02")  # replace '01' with '02' in the file name
+        f_name = f_name.replace("s_area", "r_area")
         self.res_file = f_name + '_pv' + f_ext
         self.res_file_month = f_name + '_pv_month' + f_ext
 
@@ -47,8 +45,8 @@ class Rooftops_Data():
             'Roof area and slope data loaded:',
             f'-- data structure in file `{data_struct_file}`',
             f'-- data folder `{self.work_dir}`',
-            f'-- rooftop data file `{self.data_struct[self.district]["rooftop_file"]}`',
-            f'-- segment data file `{self.data_struct[self.district]["segment_file"]}`',
+            f'-- rooftop data file `{df_struct.loc["ROOFTOP_FILE", "Name"]}`',
+            f'-- segment data file `{df_struct.loc["SEGMENT_FILE", "Name"]}`',
             f'-- two tables loaded: `rooftop` ({len(self.rooftop)} rows) and `segment` ({len(self.segment)} rows)'
         ]
         if show:

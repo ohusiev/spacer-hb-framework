@@ -10,7 +10,7 @@ import os
 import random
 import numpy as np
 class EnergyConsumptionProfileAssigner:
-    def __init__(self):
+    def __init__(self, dwelling_percentages_dict=None):
         file_dir = os.getcwd()
         self.PATH = os.path.join(file_dir, "LoadProGen", "Bilbao")
         files = [file for file in os.listdir(self.PATH) if file.endswith('.csv')]
@@ -18,25 +18,47 @@ class EnergyConsumptionProfileAssigner:
         self.df = pd.read_csv(file, sep=";")
 
         self.data = pd.read_excel(
-            os.path.join(file_dir, "data/04_energy_consumption_profiles/00_data_census_id_ener_consum_profiling.xlsx"),
+            os.path.join(file_dir, "00_mod_04_input_data_census_id_ener_consum_profiling.xlsx"),
             sheet_name="04_dwelling_profiles_census", index_col=0
         )
         self.data = self.data.iloc[:, :12]
 
         # Fixed percentages for the different types of dwellings in Pais Vasco (Spain) (BASED On GIPUZKOA, as Example)
-        # For Single dwellings
-        self.percentage_of_people_20_24_live_alone = 0.5
-        self.percentage_of_people_25_65_live_alone = 0.25
-        self.percentage_of_people_65_live_alone = 0.33
-        # For Two people dwellings
-        self.couples_25_65_without_kids = 0.11
-        self.couples_65_without_kids = 0.33
-        self.monoparental_25_65 = 0.1
-        # For Three to Five people dwellings
-        self.couples_25_65_with_kids = 0.47
-        self.coeff_1_children = 0.46
-        self.coeff_2_children = 0.44
-        self.coeff_3_more_children = 0.1
+        # Define dictionaries for each group
+        if dwelling_percentages_dict is None:
+            dwelling_percentages_dict = {
+                "single_dwellings": {
+                "percentage_of_people_20_24_live_alone": 0.5,
+                "percentage_of_people_25_65_live_alone": 0.25,
+                "percentage_of_people_65_live_alone": 0.33
+                },
+                "two_people_dwellings": {
+                "couples_25_65_without_kids": 0.11,
+                "couples_65_without_kids": 0.33,
+                "monoparental_25_65": 0.1
+                },
+                "three_five_people_dwellings": {
+                "couples_25_65_with_kids": 0.47,
+                "coeff_1_children": 0.46,
+                "coeff_2_children": 0.44,
+                "coeff_3_more_children": 0.1
+                }
+            }
+            print("Using default dwelling percentages dictionary. BASED On GIPUZKOA (Pais Vasco) as Example")
+
+        # Assign values from the main dictionary
+        self.percentage_of_people_20_24_live_alone = dwelling_percentages_dict["single_dwellings"]["percentage_of_people_20_24_live_alone"]
+        self.percentage_of_people_25_65_live_alone = dwelling_percentages_dict["single_dwellings"]["percentage_of_people_25_65_live_alone"]
+        self.percentage_of_people_65_live_alone = dwelling_percentages_dict["single_dwellings"]["percentage_of_people_65_live_alone"]
+
+        self.couples_25_65_without_kids = dwelling_percentages_dict["two_people_dwellings"]["couples_25_65_without_kids"]
+        self.couples_65_without_kids = dwelling_percentages_dict["two_people_dwellings"]["couples_65_without_kids"]
+        self.monoparental_25_65 = dwelling_percentages_dict["two_people_dwellings"]["monoparental_25_65"]
+
+        self.couples_25_65_with_kids = dwelling_percentages_dict["three_five_people_dwellings"]["couples_25_65_with_kids"]
+        self.coeff_1_children = dwelling_percentages_dict["three_five_people_dwellings"]["coeff_1_children"]
+        self.coeff_2_children = dwelling_percentages_dict["three_five_people_dwellings"]["coeff_2_children"]
+        self.coeff_3_more_children = dwelling_percentages_dict["three_five_people_dwellings"]["coeff_3_more_children"]
         # Unemployement range used as a coefficient to represent a possible weigth of families with employed and unemployed people
 
         self.data["unemployment_rate"] = 1 # REmove if needed a coefficient

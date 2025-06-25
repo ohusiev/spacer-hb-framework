@@ -37,7 +37,6 @@ class PivotRooftopAnalysis:
         Returns:
             tuple: DataFrames for buildings footprint and rooftop analysis.
         """
-
         file_dir = self.file_dir or os.getcwd()
         
         # Define file paths
@@ -50,7 +49,6 @@ class PivotRooftopAnalysis:
         
         # Read buildings footprint
         df_buildings_footprint = gpd.read_file(buildings_footprint_path)
-        #print(df_buildings_footprint.head())
         
         # Validate and read rooftop analysis file
         if not os.path.exists(wb_rt_analysis_file_path):
@@ -185,8 +183,8 @@ class PivotRooftopAnalysis:
 
         df_segment.to_excel(f"{self.file_dir}/data/01_segments_{col_name}_wb_rooftop_analysis.xlsx", sheet_name="Sheet1", index=False)
         df_buildings_footprint = df_buildings_footprint.rename(columns={"s_area": "r_area"})
-        df_buildings_footprint.to_file(f"{self.file_dir}/data/01_footprint_{col_name}_wb_rooftop_analysis.geojson", driver='GeoJSON')
-        df_buildings_footprint.to_excel(f"{self.file_dir}/data/01_footprint_{col_name}_wb_rooftop_analysis.xlsx", sheet_name="Sheet1", index=False)
+        df_buildings_footprint.to_file(f"{self.file_dir}/data/01_footprint_r_area_wb_rooftop_analysis.geojson", driver='GeoJSON')
+        df_buildings_footprint.to_excel(f"{self.file_dir}/data/01_footprint_r_area_wb_rooftop_analysis.xlsx", sheet_name="Sheet1", index=False)
         print(f"File(s) saved to: {self.file_dir}/data")
         return df_segment, df_buildings_footprint
 

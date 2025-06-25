@@ -115,12 +115,14 @@ profile_mapping = {
     "10+P_Occup_id_2": "id_1"
 }
 #%%
-PATH = r"C:\\Users\\Oleksandr-MSI\\Documentos\\GitHub\\spacer-hb-framework\\LoadProGen\\Bilbao"
-# Instantiate and use the class
-#pv_pct_list = [0.25, 0.5, 0.75]
-#for pv_pct in pv_pct_list:
-aggregator = EnergyProfileAggregator(PATH, profile_mapping, pv_pct=0.25)
-#aggregator.plot_profiles()
-result_pv_df, result_no_pv_df = aggregator.save_results()
+if __name__ == "__main__":
+    # Define the path to the directory containing the CSV files
+    PATH = r"C:\\Users\\Oleksandr-MSI\\Documentos\\GitHub\\spacer-hb-framework\\LoadProGen\\Bilbao"
+    # Instantiate and use the class
+    #pv_pct_list = [0.25, 0.5, 0.75]
+    #for pv_pct in pv_pct_list:
+    aggregator = EnergyProfileAggregator(PATH, profile_mapping, pv_pct=0.25)
+    #aggregator.plot_profiles()
+    result_pv_df, result_no_pv_df = aggregator.save_results()
 
 # %%

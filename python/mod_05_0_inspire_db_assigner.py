@@ -12,8 +12,8 @@ class InspireDBAssigner:
     def load_data(self, filename='03_footprint_subtracted_facades_and_s_v_volume_area.geojson'):
         # Real data 
         self.data = gpd.read_file(os.path.join(self.PATH, filename))
-        self.data = self.data.rename(columns={'Ano_Constr': 'year_constr'})
-
+        #self.data = self.data.rename(columns={'Ano_Constr': 'year_const'})
+    """
     def recalculate_surface_area(self):
         # Recalculate a undetached surface area
         cols = ['fa_area_N', 'fa_area_NE', 'fa_area_E', 'fa_area_SE',
@@ -29,7 +29,7 @@ class InspireDBAssigner:
         surface_area = row[surface_area_column]
         volume = row[volume_column]
         return round(surface_area / volume, 4)
-
+    """
     def get_period_from_year(self, year_of_construction):
         period_mapping = {
             "pre45": range(1800, 1945),  # Pre-1945
@@ -125,20 +125,17 @@ class InspireDBAssigner:
             raise ValueError("Invalid period specified.")
 
     def process(self):
-        # Calculate f_v_ratio
-        self.data['f_v_ratio'] = self.data.apply(self.calculate_f_v_ratio, axis=1).round(4)
-
         # Calculate heating and cooling values
         self.data['HDem_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_constr, 'demand'), axis=1)
+            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_const, 'demand'), axis=1)
         self.data['HCons_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_constr, 'consumption'), axis=1)
+            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_const, 'consumption'), axis=1)
         self.data['CDem_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_cooling_value(x.f_v_ratio, x.year_constr, 'demand'), axis=1)
+            lambda x: self.calculate_cooling_value(x.f_v_ratio, x.year_const, 'demand'), axis=1)
         self.data['CCons_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_cooling_value(x.f_v_ratio, x.year_constr, 'consumption'), axis=1)
+            lambda x: self.calculate_cooling_value(x.f_v_ratio, x.year_const, 'consumption'), axis=1)
         self.data['H_CO2_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_constr, 'co2'), axis=1)
+            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_const, 'co2'), axis=1)
         print(f"cols: {self.data.columns}")
 
     def save(self, filename='05_buildings_with_energy_and_co2_values.geojson'):
@@ -156,3 +153,4 @@ class InspireDBAssigner:
 # assigner.save()
 
 # %%
+

@@ -5,10 +5,11 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 import util_func
+import importlib
 import matplotlib.pyplot as plt
 
 class EnercomEstimator:
-    def __init__(self, root=r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework", pv_pct=0.25, ec_price_coef=0.5):
+    def __init__(self, root, pv_pct=0.25, ec_price_coef=0.5):
         # Initialize parameters
         self.root = root
         print(f"Root directory: {self.root}")
@@ -21,7 +22,7 @@ class EnercomEstimator:
         self.df_sensitivity_vulner_zones_monthly = pd.DataFrame()
 
         # Load utility functions
-        #module_name = "Economic calc.util_func"
+        #module_name = "util_func"
         #self.util_func = importlib.import_module(module_name)
 
         # Load data
@@ -29,56 +30,49 @@ class EnercomEstimator:
 
     def load_data(self):
         # Load PV generation data
-        pv_file_name = "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx"
+        pv_file_name = "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx"
         pv_path = os.path.join(self.root,"data", pv_file_name)
-        self.dataframe1 = pd.read_excel(pv_path, sheet_name='Otxarkoaga', dtype={'census_id': str})
-        self.dataframe1=self.dataframe1[self.dataframe1["building"]=="V"]
-        self.dataframe1 = self.dataframe1.groupby('census_id').sum().reset_index()
+        self.df_pv_gen = pd.read_excel(pv_path, sheet_name='Otxarkoaga', dtype={'census_id': str})
+        self.df_pv_gen=self.df_pv_gen[self.df_pv_gen["building"]=="V"]
+        self.df_pv_gen = self.df_pv_gen.groupby('census_id').sum().reset_index()
 
         # Load other dataframes
-        self.dataframe3 = pd.read_csv(
+        self.df_consumption_profile = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_with_pv_by_census_id_monthly_{self.pv_pct}.csv'),
             dtype={'census_id': str})
-        self.dataframe7 = pd.read_csv(
+        self.df_cons_no_pv = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_no_pv_by_census_id_monthly_{self.no_pv_pct}.csv'),
             dtype={'census_id': str})
-        self.dataframe4 = pd.read_csv(
+        self.df_self_consumption = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_self_cons_pct_month_{self.pv_pct}.csv'),
             dtype={'census_id': str})
-        self.dataframe5 = pd.read_csv(
+        self.df_cons_no_pv_cov = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_no_pv_month_{self.no_pv_pct}.csv'),
             dtype={'census_id': str})
-        self.dataframe6 = pd.read_csv(
+        self.df_cons_pv_cov = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_pv_month_{self.pv_pct}.csv'),
             dtype={'census_id': str})
 
-        self.df_prices = pd.read_excel(os.path.join(self.root,"241211_econom_data.xlsx"), sheet_name='cost_electricity', index_col=0)
+        self.df_prices = pd.read_excel(os.path.join(self.root,"00_input_data.xlsx"), sheet_name='cost_electricity', index_col=0)
 
         # Download statistical data
         self.stat_data = pd.read_excel(
-            os.path.join(self.root, "data\\04_energy_consumption_profiles", "00_data_census_id_ener_consum_profiling.xlsx"),
+            os.path.join(self.root, "00_mod_04_input_data_census_id_ener_consum_profiling.xlsx"),
             sheet_name='04_dwelling_profiles_census', dtype={'census_id': str}, index_col=0)
         self.stat_data.index = self.stat_data.index.astype(str)
 
     def prepare_energy_data(self):
         # Step 1: Aggregate PV generation per census_id by month
-        self.dataframe1.rename(columns={i: f'gen_m{i}' for i in range(1, 13)}, inplace=True)
+        self.df_pv_gen.rename(columns={i: f'gen_m{i}' for i in range(1, 13)}, inplace=True)
         monthly_gen_cols = [f'gen_m{i}' for i in range(1, 13)]
-        pv_gen = self.dataframe1.groupby('census_id')[monthly_gen_cols].sum().reset_index()
-
-        # Step 2: Consumption profile and self-consumption percentage per census_id, monthly
-        consumption_profile = self.dataframe3
-        self_consumption = self.dataframe4
-        cons_no_pv_cov = self.dataframe5
-        cons_pv_cov = self.dataframe6
-        cons_no_pv = self.dataframe7
+        pv_gen = self.df_pv_gen.groupby('census_id')[monthly_gen_cols].sum().reset_index()
 
         # Merge PV generation, consumption, and self-consumption data on census_id
-        energy_data = pd.merge(pv_gen, consumption_profile, on='census_id')
-        energy_data = pd.merge(energy_data, self_consumption, on='census_id')
-        energy_data = pd.merge(energy_data, cons_no_pv_cov, on='census_id')
-        energy_data = pd.merge(energy_data, cons_pv_cov, on='census_id')
-        energy_data = pd.merge(energy_data, cons_no_pv, on='census_id')
+        energy_data = pd.merge(pv_gen, self.df_consumption_profile, on='census_id')
+        energy_data = pd.merge(energy_data, self.df_self_consumption, on='census_id')
+        energy_data = pd.merge(energy_data, self.df_cons_no_pv_cov, on='census_id')
+        energy_data = pd.merge(energy_data, self.df_cons_pv_cov, on='census_id')
+        energy_data = pd.merge(energy_data, self.df_cons_no_pv, on='census_id')
         self.energy_data = energy_data
 
     def calculate_costs(self):
@@ -151,8 +145,12 @@ class EnercomEstimator:
         self.energy_data = self.energy_data.set_index('census_id')
 
     def export_to_excel(self):
-        #Create Excel writer
-        with pd.ExcelWriter(f'EC_costs_results_{self.pv_pct}_price_diff_{self.ec_price_coef}.xlsx') as writer:
+        # Create a directory for results if it doesn't exist
+        results_dir = os.path.join(self.root, "data", '06_enercom_estimator')
+        # Create directory if it doesn't exist
+        os.makedirs(results_dir, exist_ok=True)
+        # Create Excel writer
+        with pd.ExcelWriter(f'{results_dir}/EC_costs_results_{self.pv_pct}_price_diff_{self.ec_price_coef}.xlsx') as writer:
             # Sheet 1: gen_consumption
             gen_consumption_cols = [f'gen_m{i}' for i in range(1, 13)] + [f'cons_m{i}' for i in range(1, 13)] + [f'self_m{i}' for i in range(1, 13)] + [f'gen_used_dir_m{i}' for i in range(1, 13)] + [f'load_cov_dir_m{i}' for i in range(1, 13)] + [f'gen_surpl_dir_m{i}' for i in range(1, 13)] + [f'load_resid_dir_m{i}' for i in range(1, 13)]
             self.energy_data.reset_index()[['census_id'] + gen_consumption_cols].to_excel(writer, sheet_name='gen_consumption', index=False)
@@ -169,7 +167,7 @@ class EnercomEstimator:
             cost_with_EC_cols = [f'C_EC_BwPV_m{i}' for i in range(1, 13)] + [f'C_EC_BwoPV_m{i}' for i in range(1, 13)]
             self.energy_data.reset_index()[['census_id'] + cost_with_EC_cols].to_excel(writer, sheet_name='costs_with_EC', index=False)
 
-    def analyze_and_plot(self):
+    def analyze(self):
         # Plotting
         df_total_cost = pd.DataFrame(index=self.energy_data.index)
         df_total_cost['Avg Costs, dwellings with PV'] = self.energy_data[[f'C_BwPV_m{i}' for i in range(1, 13)]].sum(axis=1)
@@ -238,6 +236,17 @@ class EnercomEstimator:
                 axis=1
             )
 
+        #plot savings
+        #self.plot_saving(df_total_cost)
+
+        # Append DF
+        df_total_cost['Dwellings share with PV'] = self.pv_pct
+        df_total_cost['Price diff'] = self.ec_price_coef
+        self.df_sensitivity_total = self.df_sensitivity_total.append(df_total_cost)
+        
+        return df_total_cost
+
+    def plot_saving(self,df_total_cost):
         # Plot savings
         plot = df_total_cost[['Savings, Dwell with PV, %', 'Savings, Dwell without PV, %']].plot(
             kind='bar', ylabel="Savings in %", figsize=(10, 6),
@@ -253,11 +262,6 @@ class EnercomEstimator:
             C_cov_b_nPV='Avg Costs, dwellings without PV'
         )
 
-        # Append DF
-        df_total_cost['Dwellings share with PV'] = self.pv_pct
-        df_total_cost['Price diff'] = self.ec_price_coef
-        self.df_sensitivity_total = self.df_sensitivity_total.append(df_total_cost)
-
     def monthly_sensitivity_analysis(self):
         # Monthly Sensitivity Analysis
         df_temp = pd.DataFrame()
@@ -269,8 +273,11 @@ class EnercomEstimator:
         df_temp['Price diff'] = self.ec_price_coef
         self.df_sensitivity_vulner_zones_monthly = pd.concat([self.df_sensitivity_vulner_zones_monthly, df_temp])
 
-    def save_sensitivity(self):
-        self.df_sensitivity_total.to_excel('sensitivity_analysis.xlsx')
+    def save_sensitivity(self,df_sensitivity_append=None):
+        if df_sensitivity_append is None:
+            self.df_sensitivity_total.to_excel(f'data/06_enercom_estimator/sensitivity_analysis_{self.pv_pct}_price_diff_{self.ec_price_coef}.xlsx')
+        else:
+            df_sensitivity_append.to_excel(f'data/06_enercom_estimator/sensitivity_analysis.xlsx')
 
     @staticmethod
     def plot_ec_costs(df):
@@ -292,23 +299,73 @@ class EnercomEstimator:
         ax.set_xticklabels(df.index, rotation=0)
         ax.legend(loc='best', bbox_to_anchor=(1, 1)).set_visible(True)
         plt.show()
+
+    @staticmethod
+    def plot_savings_distribution(df, values = "Savings, Dwell with PV, %",colormap="blue"):
+        fig, axes = plt.subplots(3, 1, figsize=(14, 10))
+        price_diff_values = df["Price diff"].unique()
+        price_diff_values.sort()
+    # Iterate over each subplot and plot the corresponding bar plot
+        for i, ax in enumerate(axes.flat):
+            if i < len(price_diff_values):
+                price_diff = price_diff_values[i]
+                df_subset = df[df["Price diff"] == price_diff]
+            
+            # Creating a bar plot for Savings
+                df_subset_pivot = df_subset.pivot(index="Dwellings share with PV", columns="census_id", values=values)
+                df_subset_pivot.plot(kind="bar", ax=ax, colormap=colormap, alpha=0.7, width=0.8, fontsize=14)
+            
+            # Titles and labels
+                ax.set_title(f"EC price sell: {int(price_diff*100)}% more grid feed-in, EC price buy: {int(price_diff*100)}% less grid electricity", fontsize=14)
+                ax.set_xlabel("Scenario [i.e. Dwellings Share associated with collective (direct) PV self-consumption]" , fontsize=14)
+                ax.set_ylabel("Savings (%)", fontsize=14)
+                ax.grid(True)
+                ax.legend(title="Census ID", loc="best")
+                ax.set_xticklabels(labels=[int(s*100) for s in list(df_subset_pivot.index)], rotation=0, fontsize=14)
+    # Adjust layout for better spacing
+        plt.tight_layout()
+    # Show the plot
+        plt.show()
 #%%
 if __name__ == "__main__":
     # Example usage
-    estimator = EnercomEstimator(pv_pct=0.25, root=r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework", ec_price_coef=0.5)
-    estimator.prepare_energy_data()
-    estimator.calculate_costs()
-    estimator.export_to_excel()
-    estimator.analyze_and_plot()
-    estimator.monthly_sensitivity_analysis()
-    estimator.save_sensitivity()
-    # Test plotting function
-    data = {
-        'C_cov_b_PV': [1, 2, 3, 4],
-        'C_cov_b_nPV': [4, 3, 2, 1],
-        'C_ec_b_PV': [2, 3, 1, 4],
-        'C_ec_b_nPV': [3, 1, 4, 2]
-    }
-    df = pd.DataFrame(data)
-    EnercomEstimator.plot_ec_costs(df)
-
+    ec_price_coef_list = [0.1, 0.25, 0.5]
+    pv_pct_list = [0.25, 0.5, 0.75, 1]
+    root_dir = r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework"
+    df_sensitivity_append = pd.DataFrame()
+    for ec_price_coef in ec_price_coef_list:
+        for pv_pct in pv_pct_list:
+            print(f"Processing for PV percentage: {pv_pct}, EC price coefficient: {ec_price_coef}")
+            estimator = EnercomEstimator(pv_pct=pv_pct, root=root_dir, ec_price_coef=ec_price_coef)
+            estimator.prepare_energy_data()
+            estimator.calculate_costs()
+            estimator.export_to_excel()
+            estimator.analyze_and_plot()
+            estimator.monthly_sensitivity_analysis()
+            estimator.save_sensitivity()
+            df_sensitivity_append = df_sensitivity_append.append(estimator.analyze_and_plot())
+        
+    estimator.save_sensitivity(df_sensitivity_append)
+    #vulnerable_zones=["4802003006", "4802003007","4802003009","4802003010"]
+    #df = df_sensitivity_append.loc[df_sensitivity_append.index.isin(vulnerable_zones)]
+    #df = df.reset_index()
+    df = df_sensitivity_append.reset_index()
+    print ("Percentage of energy cost savings per scenario and share of associated with collective (direct) PV self-consumption in the census zone")
+    estimator.plot_savings_distribution(df,values = "Savings, Dwell with PV, %", colormap='cividis')
+    
+    print ("Percentage of energy cost savings per scenario and share of dwellings not associated with collective (direct) PV self-consumption in the census zone")
+    estimator.plot_savings_distribution(df,values = "Savings, Dwell without PV, %", colormap='copper')
+    #%%
+    df_sensitivity_append = pd.DataFrame()
+    for ec_price_coef in ec_price_coef_list:
+        for pv_pct in pv_pct_list:
+            estimator = EnercomEstimator(pv_pct=pv_pct, root=root_dir, ec_price_coef=ec_price_coef)
+            estimator.prepare_energy_data()
+            estimator.calculate_costs()
+            estimator.export_to_excel()
+            estimator.analyze_and_plot()
+            estimator.monthly_sensitivity_analysis()
+            df_sensitivity_append = estimator.analyze_and_plot()#df_sensitivity_append.append(estimator.analyze_and_plot())
+    
+    estimator.save_sensitivity(df_sensitivity_append)
+# %%

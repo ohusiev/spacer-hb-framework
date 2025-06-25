@@ -16,12 +16,12 @@ class SelfConsumptionAnalysis:
         self.util = UtilFunctions()
         self.root = root or os.getcwd()
         # PV data
-        self.pv_file = os.path.join(root, "data", "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx")
+        self.pv_file = os.path.join(root, "data", "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx")
         self.df_pv_gen = pd.read_excel(self.pv_file, sheet_name='Otxarkoaga')
         self.df_pv_gen=self.df_pv_gen[self.df_pv_gen["building"]=="V"].copy().reset_index(drop=True)
         print( self.df_pv_gen['r_area'].sum(), "m2 of PV area in Otxarkoaga")
         self.df_self_cons_pct = pd.DataFrame()
-        self.stat_data = pd.read_excel(os.path.join(self.root, "data\\04_energy_consumption_profiles", "00_data_census_id_ener_consum_profiling.xlsx"), sheet_name='04_dwelling_profiles_census', index_col=0)
+        self.stat_data = pd.read_excel(os.path.join(self.root, "00_mod_04_input_data_census_id_ener_consum_profiling.xlsx"), sheet_name='04_dwelling_profiles_census', index_col=0)
         # Facades data
         self.df_facades = gpd.read_file(os.path.join(self.root, "data/05_buildings_with_energy_and_co2_values+HDemProj.geojson"))
         self.standart_month_cons_cols = {"cons_m1": 1, "cons_m2": 2, "cons_m3": 3, "cons_m4": 4, "cons_m5": 5, "cons_m6": 6, "cons_m7": 7, "cons_m8": 8, "cons_m9": 9, "cons_m10": 10, "cons_m11": 11, "cons_m12": 12}
