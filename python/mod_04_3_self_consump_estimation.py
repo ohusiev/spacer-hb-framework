@@ -1,16 +1,14 @@
 #%%
 import pandas as pd
 import geopandas as gpd
-import os, yaml
+import os
 import numpy as np
 
 class SelfConsumptionEstimator:
-    def __init__(self, data_struct_file, district, pv_pct=0.25):
+    def __init__(self, work_dir, district, pv_pct=0.25):
         # INPUT FILES:
-        with open(data_struct_file, 'r', encoding="utf-8") as f:
-            self.data_struct = yaml.safe_load(f)
         self.district = district.lower()
-        self.work_dir = self.data_struct[self.district]['work_dir']
+        self.work_dir = work_dir #self.data_struct[self.district]['work_dir']
         self.pv_pct = pv_pct
         self.no_pv_pct = 1 - pv_pct
 
@@ -36,9 +34,9 @@ class SelfConsumptionEstimator:
         self.df_aggregated_profiles_no_pv.set_index('Time', inplace=True)
 
         # Load the pv generation aggregated profile
-        pv_file_path = os.path.join( self.work_dir, "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx")
+        pv_file_path = os.path.join( self.work_dir, "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx")
         self.pv_df = pd.read_excel(pv_file_path, sheet_name='Otxarkoaga')
-        self.pv_df_hourly = pd.read_csv( '02_pv_calc_rooftop/data/Otxarkoaga/pv_generation_hourly.csv' if __name__ =="__main__" else 'python/02_pv_calc_rooftop/data/Otxarkoaga/pv_generation_hourly.csv' )
+        self.pv_df_hourly = pd.read_csv( '02_pv_calc_rooftop/data/Otxarkoaga/pv_generation_hourly.csv' if __name__ =="__main__" else 'data/04_energy_consumption_profiles/pv_generation_hourly.csv' )
 
         # Reassigning the time range for the pv generation data to be aligned with the aggregated profiles
         time_range = pd.date_range(start='2021-01-01 00:00:00', end='2021-12-31 23:00:00', freq='H')
@@ -200,7 +198,7 @@ class SelfConsumptionEstimator:
 # Example usage:
 if __name__ == "__main__":
     estimator = SelfConsumptionEstimator(
-        data_struct_file='pv_energy.yml',
+        work_dir = "data",
         district="otxarkoaga",
         pv_pct=0.25
     )
