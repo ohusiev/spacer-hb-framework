@@ -29,7 +29,7 @@ class UtilFunctions:
         
         for file in files:
             if file.endswith('.csv'):
-                df_temp = pd.read_csv(os.path.join(path, file), index_col=0)
+                df_temp = pd.read_csv(os.path.join(path, file),dtype={'census_id': str}, index_col=0)
                 symbol = file.split('_')[-1].split('.csv')[0]
                 df_temp["%dwelling_accounted"] = symbol
                 dwelling_accounted_pct.append(symbol)

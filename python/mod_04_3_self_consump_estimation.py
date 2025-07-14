@@ -177,7 +177,7 @@ class SelfConsumptionEstimator:
     def save_pv_profiles(self):
         # Get the pv profiles by census_id column
         pv_df = self.pv_df[self.pv_df['census_id'].notna()]
-        pv_df['census_id'] = pv_df['census_id'].astype(int)
+        pv_df['census_id'] = pv_df['census_id'].astype(str)
         pv_census_aggreg_df = pv_df.groupby('census_id').sum([1,2,3,4,5,6,7,8,9,10,11,12, 'Total, kWh']).drop(columns=['plain_roof']).round(4)
         pv_census_aggreg_df.columns = [f'gen_m{month}' if month in [1,2,3,4,5,6,7,8,9,10,11,12] else month for month in pv_census_aggreg_df.columns]
         pv_census_aggreg_df.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggregated_pv_gen_by_census_id_monthly.csv', index=True)

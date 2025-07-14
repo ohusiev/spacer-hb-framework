@@ -3,11 +3,10 @@ import pandas as pd
 import geopandas as gpd
 import numpy as np
 import os
-import yaml
 import matplotlib.pyplot as plt
 import seaborn as sns
-from .util_func import UtilFunctions
-from .util_func import PlotFunctions
+from util_func import UtilFunctions
+from util_func import PlotFunctions
 
 class SelfConsumptionAnalysis:
     def __init__(self, root, df_pv_gen):
@@ -17,7 +16,7 @@ class SelfConsumptionAnalysis:
         self.df_pv_gen = df_pv_gen
         print( self.df_pv_gen['r_area'].sum(), "m2 of rooftop area")
         self.df_self_cons_pct = pd.DataFrame()
-        self.stat_data = pd.read_excel(os.path.join(self.root, "00_mod_04_input_data_census_id_ener_consum_profiling.xlsx"), sheet_name='04_dwelling_profiles_census', index_col=0)
+        self.stat_data = pd.read_excel(os.path.join(self.root, "00_mod_04_input_data_census_id_ener_consum_profiling.xlsx"), sheet_name='04_dwelling_profiles_census', dtype = {'census_id': str}, index_col='census_id')
         # Facades data
         self.df_facades = gpd.read_file(os.path.join(self.root, "data/05_buildings_with_energy_and_co2_values+HDemProj.geojson"))
         self.standart_month_cons_cols = {"cons_m1": 1, "cons_m2": 2, "cons_m3": 3, "cons_m4": 4, "cons_m5": 5, "cons_m6": 6, "cons_m7": 7, "cons_m8": 8, "cons_m9": 9, "cons_m10": 10, "cons_m11": 11, "cons_m12": 12}
@@ -25,7 +24,7 @@ class SelfConsumptionAnalysis:
         self.prepare_facades_data()
         self.files = os.listdir(os.path.join(self.root,"data\\04_energy_consumption_profiles\\self_cons_estim"))
         self.df_self_cons_pct, self.dwelling_accounted_pct = self.util.load_data(os.path.join(self.root,"data\\04_energy_consumption_profiles\\self_cons_estim"), self.files)
-        self.df_pv_gen_census = self.df_pv_gen.groupby('census_id').sum()
+        self.df_pv_gen_census = self.df_pv_gen.groupby('census_id').sum(numeric_only=True)
         self.df_self_cons_calc = pd.DataFrame()
         self.df_self_cons_calc_per_dwelling = pd.DataFrame()
         self.df_results = pd.DataFrame()
@@ -34,7 +33,7 @@ class SelfConsumptionAnalysis:
 
     def prepare_facades_data(self):
         # Prepare facades data
-        df_pv_temp = self.df_pv_gen.groupby('build_id').sum().reset_index()
+        df_pv_temp = self.df_pv_gen.groupby('build_id').sum(["r_area", "installed_kWp", "n_panel", "Total, kWh"]).reset_index()
         self.df_facades['build_id'] = self.df_facades['build_id'].astype(str)
         df_pv_temp['build_id'] = df_pv_temp['build_id'].astype(str)
         self.df_facades = pd.merge(self.df_facades, df_pv_temp[["build_id", "r_area", "installed_kWp", "n_panel", "Total, kWh"]], on="build_id", how='left')
@@ -48,18 +47,35 @@ class SelfConsumptionAnalysis:
                 temp_filter.loc[:, key] = temp_filter.loc[:, key].mul(self.df_pv_gen_census.loc[:, value], axis=0)
             self.df_self_cons_calc = pd.concat([self.df_self_cons_calc, temp_filter], axis=0)
 
-        # Write to excel and create csv separately
-        with pd.ExcelWriter("data/07_pv_self_cons_econom.xlsx", mode='w', engine='openpyxl') as writer:
-            self.df_self_cons_pct.to_excel(writer, sheet_name='self_cons_pct')
-            self.df_self_cons_calc.to_excel(writer, sheet_name='self_cons_calc')
-
-        self.df_self_cons_pct.to_csv("data/07_pv_self_cons_pct.csv")
-        self.df_self_cons_calc.to_csv("data/07_pv_self_cons_calc.csv")
+        if __name__ == "__main__":
+                # Write to excel and create csv separately
+            with pd.ExcelWriter(os.path.join(root,"data/07_pv_self_cons_econom.xlsx"), mode='w', engine='openpyxl') as writer:
+                self.df_self_cons_pct.to_excel(writer, sheet_name='self_cons_pct')
+                self.df_self_cons_calc.to_excel(writer, sheet_name='self_cons_calc')
+            self.df_self_cons_pct.to_csv(os.path.join(root,"data/07_pv_self_cons_pct.csv"))
+            self.df_self_cons_calc.to_csv(os.path.join(root,"data/07_pv_self_cons_calc.csv"))
+        else:
+                # Write to excel and create csv separately
+            with pd.ExcelWriter("data/07_pv_self_cons_econom.xlsx", mode='w', engine='openpyxl') as writer:
+                self.df_self_cons_pct.to_excel(writer, sheet_name='self_cons_pct')
+                self.df_self_cons_calc.to_excel(writer, sheet_name='self_cons_calc')
+            self.df_self_cons_pct.to_csv("data/07_pv_self_cons_pct.csv")
+            self.df_self_cons_calc.to_csv("data/07_pv_self_cons_calc.csv")
 
     def calculate_per_dwelling(self):
         # CALCULATE AND PLOT AVERAGE SELF-CONSUMPTION PER Dwelling Percentage
         for i in self.dwelling_accounted_pct:
-            df_temp = self.df_self_cons_calc.loc[self.df_self_cons_calc['%dwelling_accounted'] == i, self.df_self_cons_calc.columns[0:12]].div(self.stat_data['Total number of dwellings']*float(i), axis=0)
+            # Ensure both DataFrames have the same index type and values before division
+            df_self_cons_calc_temp = self.df_self_cons_calc.loc[self.df_self_cons_calc['%dwelling_accounted'].astype(str) == i, self.df_self_cons_calc.columns[0:12]]
+            df_self_cons_calc_temp.index = df_self_cons_calc_temp.index.astype(str)
+            self.stat_data.index = self.stat_data.index.astype(str)
+
+            # Align indices to ensure division is performed correctly
+            common_index = df_self_cons_calc_temp.index.intersection(self.stat_data.index)
+            df_self_cons_calc_temp = df_self_cons_calc_temp.loc[common_index]
+            stat_data_filtered = self.stat_data.loc[common_index]
+
+            df_temp = df_self_cons_calc_temp.div(stat_data_filtered['Total number of dwellings'] * float(i), axis=0)
             df_temp['%dwelling_accounted'] = i
             df_temp = df_temp.dropna()
             self.df_self_cons_calc_per_dwelling = pd.concat([self.df_self_cons_calc_per_dwelling, df_temp], axis=0)
@@ -148,7 +164,12 @@ class SelfConsumptionAnalysis:
             self.df_results = pd.concat([self.df_results, df_joined], axis=0)
 
         # Save to excel
-        self.df_results.to_excel("data/07_distribution of_self_cons_cons__pv_gen.xlsx")
+        if __name__ == "__main__":
+            self.df_results.to_excel(os.path.join(self.root, "data/07_distribution_of_self_cons_cons__pv_gen.xlsx"))
+        else:
+            # Save to excel
+            self.df_results.to_excel("data/07_distribution of_self_cons_cons__pv_gen.xlsx")
+
 
     def create_heatmap(self):
         # Create heatmap data
@@ -186,11 +207,19 @@ class SelfConsumptionAnalysis:
 # Example usage:
 if __name__ == "__main__":
     root = r"C:/Users/Oleksandr-MSI/Documentos/GitHub/spacer-hb-framework"
-    analysis = SelfConsumptionAnalysis(root)
+    pv_file_name = "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx"
+    filter_col_name='building' # Column name to filter by building type, e.g. 'building'
+    filter_value='V' # Filter value for building type, e.g. 'V' for residential buildings
+
+    df_pv_gen = pd.read_excel(os.path.join(root, "data", pv_file_name), sheet_name="Otxarkoaga", dtype={'build_id': str, 'census_id': str})
+    df_pv_gen_filered = df_pv_gen[df_pv_gen[filter_col_name]==filter_value].copy().reset_index(drop=True)
+    analysis = SelfConsumptionAnalysis(root, df_pv_gen_filered)
     analysis.calculate_self_consumption()
     analysis.calculate_per_dwelling()
+    #%%
     CENSUS_ID = 4802003011
     df_self_cons_calc_per_dwelling_filter, df_self_cons_pct_filer = analysis.filter_by_census_id(CENSUS_ID)
+    """    
     analysis.plot_self_consumption_trends(
         df_self_cons_calc_per_dwelling_filter,
         df_self_cons_pct_filer,
@@ -198,7 +227,7 @@ if __name__ == "__main__":
         ylabel='Total Self-Consumed Electricity (kWh)',
         header=f'Monthly Average PV Electricity Self-Consumption in {CENSUS_ID} section per dwelling Percentage by Scenario',
         y_min=0, y_max=200
-    )
+    )"""
     analysis.load_consumption_data()
     analysis.filter_per_dwelling_percentage()
     analysis.create_heatmap()
