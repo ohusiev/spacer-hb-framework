@@ -1,6 +1,7 @@
 #%%
 import pandas as pd
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 import seaborn as sns
 from .util_func import PVAnalysis
@@ -8,25 +9,21 @@ from .util_func import UtilFunctions
 from matplotlib.font_manager import FontProperties
 
 class EconomicAnalysis:
-    def __init__(self, root):
+    def __init__(self, root, dwelling_col="n_dwellOriginal",nrpe_factor =2.007, co2_elect_factor=0.357):
         self.root = root
         self.util_pv = PVAnalysis()
         self.util_func = UtilFunctions()
         self.combined_df = pd.DataFrame()
-        self.df = None
-        self.agg_df = None
-        self.dwelling_col = "n_dwellOriginal"
-        self.nrpe_factor = 2.007 # electricity factor for NRPE 
-        self.co2_elect_factor = 0.357 # electricity factor for CO2 emissions
+        #self.df = None
+        #self.agg_df = None
+        self.dwelling_col = dwelling_col# "n_dwellOriginal"
+        self.nrpe_factor = nrpe_factor #2.007 # electricity factor for NRPE 
+        self.co2_elect_factor = co2_elect_factor#0.357 # electricity factor for CO2 emissions
 
-    def load_data(self):
-        self.df = pd.read_excel(self.root + r"\data\05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic_otxarkpaga_orginal_price_incr+pv_degrad.xlsx")
+    def load_data(self, file_name=None):
+        self.df = pd.read_excel(os.path.join(self.root,"data", file_name))
 
-    def filter_residential_with_pv(self):
-        # select only residential buildings and buildings with PV
-        self.df = self.df[(self.df["building"] == "V") & (self.df["Total, kWh"] > 0)]
-
-    def calculate_economic_indicators(self, r=0.05, n=20, n_int=30, energy_price_growth_rate=0, heating_energy_price_euro_per_kWh=0.243, pv_degradation_rate=0, CAL_REFERENCE_CASE=False, SCENARIO="S2", COMBINATION_ID=2):
+    def calculate_economic_indicators(self, r=0.05, n=20, n_int=30, energy_price_growth_rate=0, heating_energy_price_euro_per_kWh=0.243, CAL_REFERENCE_CASE=False, SCENARIO="S2", COMBINATION_ID=2):
         # Define parameters
         intervention_combinations = {
             1: ["facade", "roof"], # low_intervention_min or high_intervention_min
@@ -160,8 +157,8 @@ class EconomicAnalysis:
         df_copy['Filter'] = f'Comb{COMBINATION_ID}{SCENARIO}'
         return df_copy
 
-    def save_to_excel(self, filename_base):
-        self.util_func.add_sheet_to_excel(self.combined_df, self.root + fr"\data\{filename_base}_ADD_SHEET.xlsx", "Sheet0")
+    def save_to_excel(self, filename_base, sheet_name="Sheet0", if_sheet_exists=False):
+        self.util_func.add_sheet_to_excel(self.combined_df, self.root + fr"\data\{filename_base}_ADD_SHEET.xlsx", sheet_name)
         self.combined_df.to_excel(self.root + fr"\data\{filename_base}.xlsx", index=False)
 
     @staticmethod
@@ -217,10 +214,8 @@ class EconomicAnalysis:
         plt.show()
         plt.close(fig)
 
-    def run_analysis(self, r=0.05, n=20, n_int=30, energy_price_growth_rate=0, heating_energy_price_euro_per_kWh=0.243, pv_degradation_rate=0, CAL_REFERENCE_CASE=False, SCENARIO="S2", COMBINATION_ID=2):
-        self.load_data()
-        self.filter_residential_with_pv()
-        self.calculate_economic_indicators(r, n, n_int, energy_price_growth_rate, heating_energy_price_euro_per_kWh, pv_degradation_rate, CAL_REFERENCE_CASE, SCENARIO, COMBINATION_ID)
+    def run_analysis(self, r=0.05, n=20, n_int=30, energy_price_growth_rate=0, heating_energy_price_euro_per_kWh=0.243, CAL_REFERENCE_CASE=False, SCENARIO="S2", COMBINATION_ID=2):
+        self.calculate_economic_indicators(r, n, n_int, energy_price_growth_rate, heating_energy_price_euro_per_kWh, CAL_REFERENCE_CASE, SCENARIO, COMBINATION_ID)
         if CAL_REFERENCE_CASE:
             COMBINATION_ID = 0
             SCENARIO = "ref_case"

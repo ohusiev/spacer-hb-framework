@@ -9,7 +9,7 @@ from whitebox_workflows import WbEnvironment
 
 
 class RooftopAnalysisAutomatiserPython:
-    def __init__(self, path, root_dir, case_study_name, suffix, crs, census_id, building_ids,building_footprint_path,statistical_census_path, lidar_path):
+    def __init__(self, path, root_dir, case_study_name, suffix, crs, filter_area, census_id, building_ids,building_footprint_path,statistical_census_path, lidar_path):
         self.path = Path(path)
         self.root_dir = root_dir
         self.case_study_name = case_study_name + suffix if suffix else case_study_name
@@ -23,6 +23,7 @@ class RooftopAnalysisAutomatiserPython:
         self.i_folder.mkdir(parents=True, exist_ok=True)
         self.o_folder.mkdir(parents=True, exist_ok=True)
         self.temp_files_folder.mkdir(parents=True, exist_ok=True)
+        self.filter_area = filter_area
 
         # Input paths
         self.lidar_path = lidar_path #os.path.join(self.i_folder, "lidar", "otxarkoaga_lidar_cliped.las")
@@ -82,6 +83,10 @@ class RooftopAnalysisAutomatiserPython:
 
     def add_xy_fields(self):
         gdf = gpd.read_file(self.rooftop_output_path)#(self.output_rooftop_clean)
+        #filter the output to only include values of column "AREA" greater than 1
+        if self.filter_area is not None:
+            gdf = gdf[gdf['AREA'] > self.filter_area]
+            print(f"Filtered rooftops to include only those with area greater than {self.filter_area} square meters.")
         gdf["geometry"] = gdf.representative_point()
         gdf["x"] = gdf.geometry.x
         gdf["y"] = gdf.geometry.y

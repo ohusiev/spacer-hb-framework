@@ -10,25 +10,27 @@ from .util_func import PlotFunctions
 from .util_func import PVAnalysis
 
 class EconomicKPIAnalyzer:
-    def __init__(self, root, pv_file_name, cost_file_name):
+    def __init__(self, root, pv_file_name, cost_file_name, facade_file_path="data/05_buildings_with_energy_and_co2_values+HDemProj.geojson", census_file_path="00_mod_04_input_data_census_id_ener_consum_profiling.xlsx"):
         # INPUT FILES:
         self.root = root
-        self.pv_file_name = pv_file_name
-        self.pv_path = os.path.join("data/", pv_file_name)
         self.cost_file_name = cost_file_name
 
         # Load Data
-        self.df_pv_gen = pd.read_excel(self.pv_path, sheet_name='Otxarkoaga', dtype={'build_id': str, 'census_id': str})
-        self.df_facades = gpd.read_file(os.path.join(root, "data/05_buildings_with_energy_and_co2_values+HDemProj.geojson"))
+        
+        self.pv_file_name = pv_file_name
+        self.pv_path = os.path.join("data/", pv_file_name)
+        self.df_pv_gen = pd.read_excel(self.pv_path, dtype={'build_id': str, 'census_id': str})
+
+        self.df_facades = gpd.read_file(os.path.join(root, facade_file_path), dtype={'build_id': str, 'census_id': str})
         self.df_costs = pd.read_excel(cost_file_name, sheet_name='cost_facade')
         self.df_h_dem_reduction_coeffs = pd.read_excel(cost_file_name, sheet_name='HDemReductionCoeffs', index_col='id')
         self.df_prices = pd.read_excel(cost_file_name, sheet_name='cost_electricity')
         self.df_monthly_self_cons_percentages = pd.read_excel(cost_file_name, sheet_name='sel-cons_%_fixed', index_col=0)
         self.monthly_self_cons_percentages = self.df_monthly_self_cons_percentages.set_index('Month')['self-cons'].to_dict()
-        self.df_ref_census_data = pd.read_csv('economic_calc/reference_census_data_table.csv', dtype={'census_id': str})
+        self.df_ref_census_data = pd.read_excel(census_file_path, dtype={'census_id': str}, sheet_name="04_dwelling_profiles_census")
 
         # Utilities
-        self.util = UtilFunctions()
+        self.util_func = UtilFunctions()
         self.util_pv = PVAnalysis()
         self.util_plot = PlotFunctions()
 
@@ -43,20 +45,13 @@ class EconomicKPIAnalyzer:
         )
         self.df_facades[["n_panel", "Total, kWh"]] = self.df_facades[["n_panel", "Total, kWh"]].fillna(0)
         print("Facades data prepared with PV generation information.")
-        return self.df_pv_gen
+        #return self.df_facades
 
-    def plot_pv_generation(self, filter_col_name='building', filter_value='V'):
+    def plot_pv_generation(self, df_filtered):
         # Plot PV generation by month total
-        print("Filtering PV data, by column:", filter_col_name, "with value:", filter_value)
-        self.df_facades = self.df_facades[self.df_facades[filter_col_name] == filter_value]
-        print("Filter PV generation by type of building...")
-        self.df_pv_gen=self.df_pv_gen[self.df_pv_gen[filter_col_name]==filter_value].copy().reset_index(drop=True)
-        self.df_pv_gen.loc[len(self.df_pv_gen)]= self.df_pv_gen.sum(axis=0,numeric_only=True)
-        self.df_pv_gen.loc[len(self.df_pv_gen)-1,'build_id']='Total'
-
         columns_to_plot = [i for i in range(1, 13)]
         self.util_plot.bar_plot_month_pv_columns(
-            self.df_pv_gen[self.df_pv_gen['build_id'] == 'Total'],
+            df_filtered[df_filtered['build_id'] == 'Total'],
             columns_to_plot,
             title="Monthly Data Distribution",
             xlabel="Months",
@@ -135,7 +130,24 @@ class EconomicKPIAnalyzer:
         df_facades[f"{SCENARIO}_Roof_M_C"] = df_facades["r_area"] * maint_roof_m2
 
         self.df_facades = df_facades
-
+        
+    def estimate_dwelling_data(self, df_facades, df_ref_census_data, ESTIM_AVG_DWE_SIZE):
+        # Estimation based on the original data for neighborhood
+        if 'Avg dwelling size' not in df_facades.columns:
+            df_facades = df_facades.merge(df_ref_census_data[['census_id', 'Total number of dwellings', 'Avg dwelling size']], on='census_id', how='left')
+            print("Average dwelling size added from reference census data.")
+        if 'grossFloorArea' not in df_facades.columns:
+            df_facades['grossFloorArea'] = df_facades['f_area'] * df_facades['n_floorsEstim']
+            print("Gross floor area calculated as product of facade area and estimated number of floors.")
+        if 'n_dwellOriginal' not in df_facades.columns:
+            df_facades['n_dwellOriginal'] = (df_facades['grossFloorArea'] / df_facades['Avg dwelling size']).round(0)
+            print("Number of dwellings estimated based on average dwelling size from reference census data.")
+        if 'n_dwellEstim' not in df_facades.columns:
+            AVG_DWE_SIZE = ESTIM_AVG_DWE_SIZE
+            df_facades['n_dwellEstim'] = (df_facades['grossFloorArea'] / AVG_DWE_SIZE).round(0)
+            print(f"Number of dwellings estimated based on average dwelling size: {AVG_DWE_SIZE} m2.")
+        return df_facades
+    
     def calculate_heating_demand(self, REGION, SCENARIO, COMBINATION_ID, ESTIM_AVG_DWE_SIZE, intervention_combinations, heating_energy_price_euro_per_kWh):
         df_facades = self.df_facades
         df_h_dem_reduction_coeffs = self.df_h_dem_reduction_coeffs
@@ -148,32 +160,15 @@ class EconomicKPIAnalyzer:
         df_facades['HDemProj'] = df_facades['HDemProj'].fillna(0)
         df_facades['HDem_iNSPiRE'] = df_facades['HDem_iNSPiRE'].fillna(0)
         print(f"Heating demand reduction coefficient for {REGION}, {SCENARIO}, {combination}: {h_dem_reduction_coeff}")
-        df_facades['HDemProj'] = self.adjust_heating_demand_vectorized(df_facades, 'HDem_iNSPiRE', 'HDemProj')
+        df_facades['HDem_adjusted'] = self.adjust_heating_demand_vectorized(df_facades, 'HDem_iNSPiRE', 'HDemProj')
 
-        df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_kWh/m2'] = df_facades['HDemProj'] * (1 - h_dem_reduction_coeff)
+        df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_kWh/m2'] = df_facades['HDem_adjusted'] * (1 - h_dem_reduction_coeff)
 
-        # Estimation based on the original data for Otxarkoaga
-        data = {
-            "census_id": [4802003003, 4802003005, 4802003006, 4802003007, 4802003009, 4802003010, 4802003011, 4802003015],
-            "Num dwellings": [501, 830, 404, 464, 536, 350, 664, 464],
-            "Total Population": [1037, 1624, 846, 914, 1220, 737, 1395, 1088],
-            "Avg dwelling size": [79, 59, 59, 59, 73, 59, 57, 80],
-            "Buildings": [29, 58, 25, 28, 36, 22, 50, 19]
-        }
-        #df_reference = pd.DataFrame(data)
-        #df_reference['census_id'] = df_reference['census_id'].astype(str)
 
-        if 'Avg dwelling size' not in df_facades.columns:
-            df_facades = df_facades.merge(self.df_ref_census_data[['census_id', 'Num dwellings', 'Avg dwelling size']], on='census_id', how='left')
-        if 'grossFloorArea' not in df_facades.columns:
-            df_facades['grossFloorArea'] = df_facades['f_area'] * df_facades['n_floorsEstim']
-        if 'n_dwellOriginal' not in df_facades.columns:
-            df_facades['n_dwellOriginal'] = (df_facades['grossFloorArea'] / df_facades['Avg dwelling size']).round(0)
-        if 'n_dwellEstim' not in df_facades.columns:
-            AVG_DWE_SIZE = ESTIM_AVG_DWE_SIZE
-            df_facades['n_dwellEstim'] = (df_facades['grossFloorArea'] / AVG_DWE_SIZE).round(0)
 
-        df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_Savings_kWh'] = (df_facades['HDemProj'] - df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_kWh/m2']) * df_facades['grossFloorArea']
+        df_facades = self.estimate_dwelling_data(df_facades, self.df_ref_census_data, ESTIM_AVG_DWE_SIZE)
+
+        df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_Savings_kWh'] = (df_facades['HDem_adjusted'] - df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_kWh/m2']) * df_facades['grossFloorArea']
         df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_Savings_Euro'] = df_facades[f'Comb{COMBINATION_ID}{SCENARIO}_HDem_Savings_kWh'] * heating_energy_price_euro_per_kWh
 
         # Round All values to 3 decimal points
@@ -189,11 +184,11 @@ class EconomicKPIAnalyzer:
         df_pv_gen['PV_M_C'] = df_pv_gen['PV_I_C'] * PV_M_C
         df_pv_gen.loc[:, ['PV_I_C', 'PV_M_C']] = df_pv_gen.loc[:, ['PV_I_C', 'PV_M_C']].round(3)
         self.df_pv_gen = df_pv_gen
-
-    def save_pv_to_excel(self):
+    """ 
+    def save_pv_to_excel(self, sheet_name='Otxarkoaga'):
         save_path = os.path.join(self.root,"data", self.pv_file_name)
-        self.util.add_sheet_to_excel(self.df_pv_gen, save_path, sheet_name='pv_cost_upd', index=False)
-
+        self.util.add_sheet_to_excel(self.df_pv_gen, save_path, sheet_name=sheet_name, index=False, if_sheet_exists='replace')
+    """
     def join_pv_costs_to_facades(self):
         self.df_facades = pd.merge(
             self.df_facades,
@@ -216,18 +211,24 @@ class EconomicKPIAnalyzer:
         #cols_to_merge = [col for col in df_pv_results.columns if col not in self.df_facades.columns or col == 'build_id']
         #self.df_economic_analysis = self.df_facades.merge(df_pv_results[cols_to_merge], on=['build_id'], how='left')
         self.df_economic_analysis = self.df_facades.merge(df_pv_results, on=['build_id'], how='left')
-        print(self.df_economic_analysis[['build_id', 'census_id', 'PV_self_cons_kWh', 'PV_to_grid_kWh', 'PV_self_cons_Euro', 'PV_to_grid_Euro', ]])
-
+        #print(self.df_economic_analysis[['build_id', 'census_id', 'PV_self_cons_kWh', 'PV_to_grid_kWh', 'PV_self_cons_Euro', 'PV_to_grid_Euro', ]])
+        print (f"PV metrics calculated with degradation rate: {pv_degradation_rate} and energy price growth rate: {energy_price_growth_rate}")
+        self.save_economic_analysis (
+        f"05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic_pv_deg_rate_{pv_degradation_rate}_ener_price_growth_rate_{energy_price_growth_rate}.geojson",
+        f"05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic_pv_deg_rate_{pv_degradation_rate}_ener_price_growth_rate_{energy_price_growth_rate}.xlsx"
+        )
+        print("Economic KPIs saved to GeoJSON and Excel files with name: \n",
+              f"05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic_pv_deg_rate_{pv_degradation_rate}_ener_price_growth_rate_{energy_price_growth_rate}")
     def save_economic_analysis(self, geojson_filename, excel_filename):
-        self.df_economic_analysis.to_file(os.path.join(self.root, geojson_filename), driver='GeoJSON')
+        self.df_economic_analysis.to_file(os.path.join(self.root, "data", geojson_filename), driver='GeoJSON')
         df_no_geom = self.df_economic_analysis.drop(columns='geometry')
-        df_no_geom.to_excel(os.path.join(self.root, excel_filename), index=False)
+        df_no_geom.to_excel(os.path.join(self.root, "data", excel_filename), index=False)
 
 # Example usage:
 if __name__ == "__main__":
     root = r"C:\Users\Oleksandr-MSI\Documentos\GitHub\spacer-hb-framework"
     pv_file_name = "01_footprint_s_area_wb_rooftop_analysis_pv_month_pv.xlsx"
-    cost_file_name = "241211_econom_data.xlsx"
+    cost_file_name = "00_input_data.xlsx"
 
     analyzer = EconomicKPIAnalyzer(root, pv_file_name, cost_file_name)
     analyzer.prepare_facades()
@@ -249,13 +250,11 @@ if __name__ == "__main__":
     analyzer.calculate_heating_demand(REGION, SCENARIO, COMBINATION_ID, intervention_combinations, heating_energy_price_euro_per_kWh)
     analyzer.save_facades("05_buildings_with_energy_and_co2_values+HDemProj_facade_costs_with_HDem_corr.geojson")
     analyzer.calculate_pv_costs()
-    analyzer.save_pv_to_excel()
+    save_path = os.path.join(analyzer.root,"data", analyzer.pv_file_name)
+    analyzer.util.add_sheet_to_excel(analyzer.df_pv_gen, save_path, sheet_name="Otxarkoaga", index=False, if_sheet_exists='replace')
+    #analyzer.save_pv_to_excel()
     analyzer.join_pv_costs_to_facades()
     analyzer.save_facades_with_pv("05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV.geojson")
     analyzer.calculate_pv_metrics(pv_degradation_rate, energy_price_growth_rate)
-    analyzer.save_economic_analysis(
-        "05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic.geojson",
-        "05_buildings_with_energy_and_co2_values+HDemProj_facade_costs+PV_economic_otxarkpaga_orginal_price_incr+pv_degrad.xlsx"
-    )
 
 # %%

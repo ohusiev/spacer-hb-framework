@@ -8,18 +8,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from .util_func import UtilFunctions
 from .util_func import PlotFunctions
-from .util_func import PVAnalysis
 
 class SelfConsumptionAnalysis:
-    def __init__(self, root):
+    def __init__(self, root, df_pv_gen):
         # INPUT FILES:
         self.util = UtilFunctions()
         self.root = root or os.getcwd()
-        # PV data
-        self.pv_file = os.path.join(root, "data", "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx")
-        self.df_pv_gen = pd.read_excel(self.pv_file, sheet_name='Otxarkoaga')
-        self.df_pv_gen=self.df_pv_gen[self.df_pv_gen["building"]=="V"].copy().reset_index(drop=True)
-        print( self.df_pv_gen['r_area'].sum(), "m2 of PV area in Otxarkoaga")
+        self.df_pv_gen = df_pv_gen
+        print( self.df_pv_gen['r_area'].sum(), "m2 of rooftop area")
         self.df_self_cons_pct = pd.DataFrame()
         self.stat_data = pd.read_excel(os.path.join(self.root, "00_mod_04_input_data_census_id_ener_consum_profiling.xlsx"), sheet_name='04_dwelling_profiles_census', index_col=0)
         # Facades data

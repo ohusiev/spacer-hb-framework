@@ -5,63 +5,44 @@
 
 ## What is SPACER-HB?
 
-SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework for early-stage local energy community planning. It integrates solar rooftop and buildings' facade renovation potential inventory with household-level energy vulnerability mapping to support informed pre-feasibility decisions.
+SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework for early-stage local energy community (EC) planning. It integrates solar rooftop and buildings' facade renovation potential inventory with household-level energy vulnerability mapping to support informed pre-feasibility decisions.  It enables exploration of energy community scenarios and identification of priority areas—without requiring detailed local data or complex models.
 
 
 ## Main purpose of the framework:
 1. To provide an adaptable set of custom tools that help in spatial assessment of the potential for local energy communities. It utilizes publicly available data and open-source tools to estimate building energy demand, the impacts of renovations, and solar rooftop potential. 
 2. The framework combines statistical census data (LAU2, LAU1) with building-level information in a unified data workflow to estimate community solar self-consumption, average household savings, and the effects of various pricing rules—using only publicly available data and no private metering.
 
-```
-The framework is designed for prefeasibility analysis, aiming to make a straightforward ad-hoc workflow for potential municipalities and/or researchers to explore energy scenarios and identify priority areas from spatial perspective, without needing detailed local data or complex models.
+### 🧭 Framework Overview
 
-The methodologogical workflow presents a custom combinaiton of tools and methods aligned together to establish a workflow for part of work wihtin a PhD disseration titled "Exploring and Supporting Energy Communities through Spatially Integrated Methods in Local Energy Planning".
+![SPACER-HB Framework Overview](./img/spacer-hb-framework-overview.png)
 
-The current framework, in short, depicts components integrating census-level statistical boundaries with building-specific, aligning tabular data with geospatial vector and raster data. For that a python based automatization scripts has been developed to streamline certain aspects. While the intentin didn't cover a front end/ backend technical development, as well as integration of Database. The set of refined software integrated solutions has benn existing in open source foem, requiring either detailed amount of data, or from the point of comertial solutions. 
+- **Python libraries and Anaconda environment:**
+    
+    Python ver used: 3.9.16
 
-In contrast, while acknowleging the variability the tools, an dbeing the matter of the researhc in the disruptiave public availability of generative Ai services that bring an options to combine/introduce abovedescribed generic tools/methods into variaty of potetial ad-hoc workflows, adjustable for any kind of purpose. The detailed description of the workflow with pythons scripts for partial automatisation and facilitation of the process is intended to serve as a reproducable and yet realistic tutorial that might be of use for the potential reasearcher/ municipality(energy analyst) and other stakeholders, or energy community intusiast, seaking to build data pipline, with exploring particual approach for mapping of energy vulnerability and socio-economic potential of building stock energy renovation.
+    Anaconda environment snapshot with pip installed pachages:          [environment_with_builds.yml](./00_set_up_directories/environment_with_builds.yml)
+- **QGIS and Whitebox plugin:**
+    
+    QGIS version used: 3.32.3
+    
+    Whitebox tools: [Whitebox Workflows for Python](https://www.whiteboxgeo.com/whitebox-workflows-for-python/)
 
-The certain estimation and simplification has been described and systematised for parameters and variables, done through manimulation of data in tabular form (MS Excel), while intermediate input/output files considered as of xlsx, csv and geojson formats, primarily processed by the python libraries as pandas and geopandas, as well as QGIS software for furtehr visualization.
+    More about Whitebox products open-source / commercial licence: [here](https://groups.google.com/g/whiteboxtools/c/p6P1n3LRWHo?pli=1)
 
-DESCLAMER: This Framework initially is not aimed to be optimised tool from the point of performance, used software modelues and developed code scripts, and was only elementary tested for whe components of software lifecycle (steps covered with manual check on mistakes and bugs starting from requirements definition, system specification, system and its units design, unit and system coding, and manual systems integration testing and only primary iterative checks for a principal components to adresse system validation testing.
+- **LoadProfileGenerator Tool:**
+    Version:10.10  
 
-Also, the necessary presision of the calculations was intended to be primary focus, but rather as a semi-authomatised workflow, as it was already mentioned for a pre-feasibility estimation with extended level of spatial scope and at the same time.
-The stop point for this framework initially considered establishd pipeline with a final semi-automatised dasboard creation, however this final aspect is under the development.
-While the public announecement of AI generative tool has marked a new era with the incorporation of LLMs into GIS, this framework also demonstrates approach for utilisation of it with sertain degree for aoutomation of preliminary data cleaning and developing a scripts that before rather could take an immense constraint for beginner and take a considerable amount of time for a most of mid-to high level of GIS analysis and researchers. The processing structure implementation and application of spatial data will be revolutionized by automation, improved accessibility.
-
-```
-
-## Content
- 1. Workflow, setup environment for python libraries 
- 2. Structure, Input parameters file and naming standartization
- 3. Python scripting developed as 'Modules' 
- 4. Interpretation Output
- 5. Demo
-
-
-## 1. Workflow and setup for python libraries
-
-### 1.1 Python libraries and Anaconda environment:
-​    Python ver used: 3.9.16
-​    Anaconda environment:
-​    pip installed pachages:
-### 1.2 QGIS and Whitebox plugin:
-​    QGIS version:
-​    Whitebox Tools:
-​    More on how to instal WhiteboxTools plugin in QGIS:
-### 1.3 LoadProfileGenerator Tool
-
-## 2. Structure, Input parameters and naming standartization
-
+    Database: [Adjusted example used for case study](./LoadProGen/first_lgp_test.db3)
 
 > **!! IMPORTANT: It is important to ensure the same coordinate system from the beginning !!**
-### 2.1 Set-up directory tree 
 
 > **Workig directory set-up by default built in a simple way, i.e it is assumed to be a single project (i.e: single Case Study per root directory tree).**
 
-> Single action for a new project, if needed.
+#### Methodology & Structure
+This framework is implemented through a customized set of Python tools and methods, integrated within a Jupyter Notebook:
+📓 [main_jp_notebook.ipynb](./main_jp_notebook.ipynb)
 
-### 📁 Project Directory Structure
+##### 📁 Project Directory Structure
 
 ```text
 root_folder/
@@ -78,7 +59,6 @@ root_folder/
 ├── vector/
 │   └── Contains project-related vector files, including:
 │       - Building footprints
-│       - Initial outputs from Whitebox Tools: Rooftop Analysis
 │
 ├── LoadProGen/
 |    └── Includes electricity load profiles for households. These are used for energy demand analysis within the framework.
@@ -87,92 +67,63 @@ root_folder/
     └── Stores temporary and Python scripting Modules' output data files
 ```
 
+It was developed as part of a PhD dissertation titled "Exploring and Supporting Energy Communities through Spatially Integrated Methods in Local Energy Planning." 
 
-### 2.2 Placing files into default directory path
+The framework expands upon the published study:
+Husiev, O. (2025). Spatial analysis of energy communities and energy vulnerabilities in Spain. Journal of Urban Planning, 2025, 101954. https://doi.org/10.1016/j.jup.2025.101954. This work integrates various aspects, such as building stock geometric inventory, energy flexibility and renewable energy deployment estimation, to provide a methodological proposal for the design and planning of energy communities.
 
-### 2.3 FILES and FIELDS naming standartization
+The framework links census-level statistical boundaries with building-specific data, combining geospatial vector/raster layers and tabular inputs. Python-based automation scripts streamline several core processes. While this project does not include full front-end/backend integration or database infrastructure, it builds on open-source tools otherwise available only as commercial software or requiring large, detailed datasets. To demonstrated 
 
-Attributes for segments of building rooftop analysis layer
-| #  | Attribute Name                                             | Short Name             |
-|----|-----------------------------------------------------------|------------------------|
-|    | **IDs for levels analysis interplay**                     |                        |
-| 1  | Segment ID                                                | segm_id                |
-| 2  | Building ID                                               | build_id               |
-| 3  | Census ID                                                 | census_id              |
-|    | **Primary, WhiteBox RooftopAnalysis**                     |                        |
-| 4  | Slope, degree                                             | slope                  |
-| 5  | Aspect (angle), degree                                    | aspect                 |
-| 6  | Segment area (projected on horizontal surface), m²        | s_area                 |
-| 7  | Maximum elevation of segment, m                           | max_elev               |
-|    | **Secondary, WhiteBox RooftopAnalysis**                   |                        |
-| 9  | WhiteBox rooftop analysis building ID                     | wb_build_id            |
-| 10 | Hillshade of Segment                                      | hilshade               |
-|    | **Supportive**                                            |                        |
-| 8  | Exception, (1 -excluded)                                  | exception              |
-| 11 | Building use type [residential label]                     | building               |
-| 12 | Segment useful area, m²                                   | s_usf_area             |
-| 14 | Segment center X, EPSG:                                   | crs[%epsg:num]_x       |
-| 15 | Segment center Y, EPSG:                                   | crs[%epsg:num]_y       |
-|    | **Optional**                                              |                        |
-| 16 | Building address, street                                  | build_str              |
-| 17 | Building address, number                                  | build_num              |
-| 18 | Building center X, EPSG:                                  | b_cent_x               |
-| 19 | Building center Y, EPSG:                                  | b_cent_y               |
+#### 🧰 Design Principles
+Rather than providing a fully optimized or production-ready software stack, the framework focuses on:
 
+- Accessibility and transparency
 
-Table Attributes of solar rooftop output analysis
-| #  | Attribute Name                                 | Short Name   |
-|----|------------------------------------------------|--------------|
-| 1  | Building ID                                    | build_id     |
-| 2  | Census ID                                      | census_id    |
-| 3  | Number of solar PV panels                      | n_panels     |
-|    | *Number of solar thermal panels                |              |
-| 4  | Installed capacity of solar PV panels, kWp     | panel_kWp    |
-|    | *Installed capacity of solar thermal panels, kWp|             |
-| 5  | *Monthly generation (kWh) m = 1, [1,12], m∈R   | [1:12]       |
-| 6  | Annual generation, kWh                         | Total, kWh   |
-|    | *for PV or ST 100%                             |              |
+- Semi-automated scripting (Python + QGIS)
 
-Note: * reflects the group of attributes that will hold different values considering if initially solar PV or solar thermal technology estimation was accepted
+- Adaptability to public data
 
+- Open-source methodology
 
-## 3. Python script as Modules 
-​ **Module 1: PyQGIS and WhiteBox Rooftop analysis automatiser**
-        
-        00_pyqgis_wb_automator.py
-        mod_01_pivot_rooftop_data.py
-        ---
-​    
-**Module 2: Rooftop PV analysis**
-        
-        mod_02_pv_power_month.py
+It serves as a realistic, reproducible tutorial for researchers, municipalities, energy analysts, and citizen energy enthusiasts interested in:
 
-**Module 3:  Calculate Simple geometry of buildingas based on 2d footprint and height**
+- Spatial mapping of energy vulnerability
 
-        mod_03_geopandas_facade_analyser.py
+- Estimating socio-technical renovation potential
 
-What it is about: Joining non-spatial data (CSV) to a GeoDataFrame; Calculating new columns
+- Building data pipelines with modest technical capacity
 
-**Module 4: Dwelling profile generator and assigner, self-consumption estimator**
-        
-        mod_04_ener_consum_profile_assigner.py
-        mod_04_energy_profile_aggregation.py
-        mod_04_self_consump_estimation.py
-​   
-**Module 5: Building stock heating/cooling demand/consumption assignment and Economic calculation**
+#### 📊 Input Data and Processing
+Key parameter definitions and scenario variables are defined in Excel:
+📄 [00_input_data.xlsx](./00_input_data.xlsx)
 
-        mod_05_inspire_db_assigner.py from https://zenodo.org/records/3256270
-        mod_05_1_simple_kpi_calc.py
-        mod_05_2_test_economic_analysis.py
+Intermediate data is exchanged through .xlsx, .csv, and .geojson formats, processed with:
 
-**Module 6: Energy community estimator**
+Python libraries: pandas, geopandas, shapely
 
-        mod_06_enercom_estimator.py
+Open-source GIS software: QGIS (for visual inspection and manual adjustments, file: [qgis_project_map](./qgis_project_map.qgz)) [to be improved]
 
-**Module 7: Visualization**
+##### Module 4 Input File:
+The file [00_mod_04_input_data_census_id_ener_consum_profiling.xlsx](./00_mod_04_input_data_census_id_ener_consum_profiling.xlsx) contains input data used in Module 4. It supports the assignment of dwelling typologies based on socio-demographic census data and includes a custom interpretation of energy consumption profiles per dwelling type.
 
-        !!! mod_07_self-cons_scenarios_calc.py
-        mod_07_geo_visualization.py
-        QGIS +filters
+# ⚠️ Disclaimer
+- This framework is not performance-optimized, nor fully validated for production-grade software engineering. It has been:
+
+- Manually checked during key lifecycle stages: requirements, design, implementation, integration
+
+- Functionally tested only for core component consistency (unit/system-level)
+
+- It aims to demonstrate a semi-automated, spatially extended workflow that is accessible for engineers and enthusiasts not primarily involved in software development, especially with the emergence of AI-powered agents in user workflows. It is intended for high-level scenario testing and mapping, not detailed simulation or modeling.
+
+## 🔄 Current Limitations and Next Steps
+Although the framework covers spatial processing and workflow design, some components remain under development:
+
+### Planned Improvements
+- ⚙️ Align codebase closer to basic principles of PEP8 and OOP practices
+
+- 📊 Add interactive visualizations as a dashboard-like presentation and output exploration
+
+- 🛢️ Integrate lightweight database functionality (e.g. DuckDB) for smoother data flow
+
 
 

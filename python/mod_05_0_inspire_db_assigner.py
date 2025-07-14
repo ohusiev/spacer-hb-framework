@@ -124,18 +124,18 @@ class InspireDBAssigner:
         else:
             raise ValueError("Invalid period specified.")
 
-    def process(self):
-        # Calculate heating and cooling values
+    def process(self, surface_to_volume_ratio_col='f_v_ratio', year_col='year_const'):
+        # Calculate heating and cooling values using specified columns
         self.data['HDem_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_const, 'demand'), axis=1)
+            lambda x: self.calculate_heating_value(x[surface_to_volume_ratio_col], x[year_col], 'demand'), axis=1)
         self.data['HCons_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_const, 'consumption'), axis=1)
+            lambda x: self.calculate_heating_value(x[surface_to_volume_ratio_col], x[year_col], 'consumption'), axis=1)
         self.data['CDem_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_cooling_value(x.f_v_ratio, x.year_const, 'demand'), axis=1)
+            lambda x: self.calculate_cooling_value(x[surface_to_volume_ratio_col], x[year_col], 'demand'), axis=1)
         self.data['CCons_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_cooling_value(x.f_v_ratio, x.year_const, 'consumption'), axis=1)
+            lambda x: self.calculate_cooling_value(x[surface_to_volume_ratio_col], x[year_col], 'consumption'), axis=1)
         self.data['H_CO2_iNSPiRE'] = self.data.apply(
-            lambda x: self.calculate_heating_value(x.f_v_ratio, x.year_const, 'co2'), axis=1)
+            lambda x: self.calculate_heating_value(x[surface_to_volume_ratio_col], x[year_col], 'co2'), axis=1)
         print(f"cols: {self.data.columns}")
 
     def save(self, filename='05_buildings_with_energy_and_co2_values.geojson'):

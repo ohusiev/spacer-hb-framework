@@ -31,7 +31,7 @@ class FacadeAnalyser:
     def load_polygons(self, build_id='build_id'):
         col_of_interest = [build_id, 'census_id', 'building', 'year_const', 'r_area','geometry'] 
         self.polygons_gdf = gpd.read_file(self.file_path, index_col="ID")
-        print(self.polygons_gdf.head())
+        print(f"Loaded {len(self.polygons_gdf)} polygons with columns:\n {self.polygons_gdf.columns}")
         self.polygons_gdf = self.polygons_gdf[col_of_interest]
 
     def calculate_segment_length_and_orientation(self, start_x, start_y, end_x, end_y):
@@ -146,29 +146,44 @@ class FacadeAnalyser:
         return result_df
 
     def calculate_surface_area(self, row, heigth_column='h_mean', area_column='f_area', perimeter_column='f_perimeter'):
+        # Calculates total building surface area using perimeter, height, and footprint area from a DataFrame row.
+        # Input: DataFrame row with perimeter, height, and area columns.
+        # Output: Float, total surface area (rounded).
         perimeter = row[perimeter_column]
         height = row[heigth_column]
         area = row[area_column]
         return round(perimeter * height + 2 * area, 4)
 
     def calculate_volume(self, row, heigth_column='h_mean', area_column='f_area'):
+        # Calculates building volume as area × height from a DataFrame row.
+        # Input: DataFrame row with area and height columns.
+        # Output: Float, building volume (rounded).
         area = row[area_column]
         height = row[heigth_column]
         return round(area * height, 4)
 
     def calculate_s_v_ratio(self, row, surface_area_column='surface_area', volume_column='volume'):
+        # Computes the surface-to-volume ratio from a DataFrame row.
+        # Input: DataFrame row with surface area and volume columns.
+        # Output: Float, S/V ratio (rounded).
         surface_area = row[surface_area_column]
         volume = row[volume_column]
         return round(surface_area / volume, 4)
 
     def recalculate_surface_area(self, polygons_gdf):
-        # Recalculate undetached surface area
+        # Recalculate undetached surface area 
+        # Sums facade areas for all orientations to get total facade area for each building.
+        # Input: GeoDataFrame with facade area columns.
+        # Output: GeoDataFrame with new 'Total_fa_area' column.
         cols = ['fa_area_N', 'fa_area_NE', 'fa_area_E', 'fa_area_SE',
                 'fa_area_S', 'fa_area_SW', 'fa_area_W', 'fa_area_NW']
         polygons_gdf['Total_fa_area'] = polygons_gdf[cols].sum(axis=1).round(2)
         return polygons_gdf
 
     def assign_window_areas(self, polygons_gdf, windows_to_wall_ratio=0.24):
+        # Calculates window and wall areas based on a window-to-wall ratio for each building.
+        # Input: GeoDataFrame and ratio.
+        # Output: GeoDataFrame with window and wall area columns.
         # Assign window areas based on windows-to-wall ratio
         polygons_gdf["Tot_w2wall"] = windows_to_wall_ratio
         polygons_gdf["Tot_window_area"] = polygons_gdf["Total_fa_area"] * polygons_gdf["Tot_w2wall"]
@@ -176,7 +191,22 @@ class FacadeAnalyser:
         return polygons_gdf
 
     def calculate_f_v_ratio(self, row, surface_area_column='Total_fa_area', volume_column='volume'):
+        # Computes the facade-to-volume ratio from a DataFrame row.
+        # Input: DataFrame row with facade area and volume columns.
+        # Output: Float, F/V ratio (rounded).
         surface_area = row[surface_area_column]
+        volume = row[volume_column]
+        return round(surface_area / volume, 4)
+    
+    def calculate_adj_surface_v_ratio(self, row, facade_area_column='Total_fa_area', roof_area_column ='r_area', footprint_area_column='f_area', volume_column='volume'):
+        # Calculates adjusted surface-to-volume ratio including facades (Only surfaces exposed to open air (i.e.not shared with adjacent buildings),
+        # roof, and footprint.
+        # Input: DataFrame row with facade, roof, footprint areas, and volume.
+        # Output: Float, adjusted S/V ratio (rounded).
+        facade_area = row[facade_area_column] 
+        footprint_area = row[footprint_area_column]
+        roof_area = row[roof_area_column]
+        surface_area = facade_area + footprint_area + roof_area
         volume = row[volume_column]
         return round(surface_area / volume, 4)
 #%%

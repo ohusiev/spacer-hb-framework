@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 class SelfConsumptionEstimator:
-    def __init__(self, work_dir, district, pv_pct=0.25):
+    def __init__(self, df_pv, work_dir, district, pv_pct=0.25):
         # INPUT FILES:
         self.district = district.lower()
         self.work_dir = work_dir #self.data_struct[self.district]['work_dir']
@@ -15,10 +15,8 @@ class SelfConsumptionEstimator:
         # Load the dataframes of aggregated consumption profiles
         self.aggregated_profiles_file_path = 'data/04_energy_consumption_profiles/'
         if __name__ == "__main__":
-            temp_path =os.getcwd()
-            temp_path = temp_path.split('python')[0]
-            self.aggregated_profiles_file_path = os.path.join(temp_path, self.aggregated_profiles_file_path)
-            self.work_dir = os.path.join(temp_path, self.work_dir)
+            self.aggregated_profiles_file_path = os.path.join(work_dir, self.aggregated_profiles_file_path)
+            #self.work_dir = os.path.join(temp_path, self.work_dir)
 
 
         self.df_aggregated_profiles = pd.read_csv(
@@ -34,9 +32,8 @@ class SelfConsumptionEstimator:
         self.df_aggregated_profiles_no_pv.set_index('Time', inplace=True)
 
         # Load the pv generation aggregated profile
-        pv_file_path = os.path.join( self.work_dir, "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx")
-        self.pv_df = pd.read_excel(pv_file_path, sheet_name='Otxarkoaga')
-        self.pv_df_hourly = pd.read_csv( '02_pv_calc_rooftop/data/Otxarkoaga/pv_generation_hourly.csv' if __name__ =="__main__" else 'data/04_energy_consumption_profiles/pv_generation_hourly.csv' )
+        self.pv_df = pd.read_excel(os.path.join(self.work_dir, "data","02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx")) if __name__ =="__main__" else df_pv
+        self.pv_df_hourly = pd.read_csv(os.path.join(work_dir,"data", "04_energy_consumption_profiles", "pv_generation_hourly.csv") if __name__ =="__main__" else 'data/04_energy_consumption_profiles/pv_generation_hourly.csv' )
 
         # Reassigning the time range for the pv generation data to be aligned with the aggregated profiles
         time_range = pd.date_range(start='2021-01-01 00:00:00', end='2021-12-31 23:00:00', freq='H')
@@ -152,6 +149,7 @@ class SelfConsumptionEstimator:
         )
         # Save the results
         df_self_cons_pct_monthly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_self_cons_pct_month_{self.pv_pct}.csv', index=True, index_label='census_id')
+        df_self_cons_pct_monthly.to_csv(f'data/04_energy_consumption_profiles/self_cons_estim/04_self_cons_pct_month_{self.pv_pct}.csv', index=True, index_label='census_id')
         df_cov_pct_no_pv_monthly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_no_pv_month_{self.no_pv_pct}.csv', index=True, index_label='census_id')
         df_cov_pct_pv_monthly.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_pv_month_{self.pv_pct}.csv', index=True, index_label='census_id')
         return df_self_cons_pct_monthly, df_cov_pct_no_pv_monthly, df_cov_pct_pv_monthly
@@ -170,6 +168,8 @@ class SelfConsumptionEstimator:
         matching_columns, _ = self.get_matching_columns_and_index()
         monthly_agg, seasonal_agg = self.get_aggregated_profiles(self.df_aggregated_profiles, matching_columns, col_suffix='cons_m')
         monthly_agg.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_with_pv_by_census_id_monthly_{self.pv_pct}.csv', index=True, index_label='census_id')
+        monthly_agg.to_csv(f'data/04_energy_consumption_profiles/cons/04_aggreg_cons_prof_with_pv_by_census_id_monthly_{self.pv_pct}.csv', index=True, index_label='census_id')
+
         monthly_agg_no_pv, seasonal_agg_no_pv = self.get_aggregated_profiles(self.df_aggregated_profiles_no_pv, matching_columns, col_suffix='no_pv_cons_m')
         monthly_agg_no_pv.to_csv(f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_no_pv_by_census_id_monthly_{self.no_pv_pct}.csv', index=True, index_label='census_id')
         return monthly_agg, monthly_agg_no_pv
@@ -198,7 +198,7 @@ class SelfConsumptionEstimator:
 # Example usage:
 if __name__ == "__main__":
     estimator = SelfConsumptionEstimator(
-        work_dir = "data",
+        work_dir = os.getcwd().split('python')[0],
         district="otxarkoaga",
         pv_pct=0.25
     )

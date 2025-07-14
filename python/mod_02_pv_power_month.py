@@ -23,13 +23,13 @@ class PVMonthCalculator:
     Class for calculating monthly PV energy for rooftops.
     """
 
-    def __init__(self, params_file, sheet_name='panel_pars', solar_energy_type='pv'):
+    def __init__(self, params_file, sheet_name='panel_pars', solar_energy_type='pv', nominal_power_kwp=0.3):
         """
         Initialize parameters and read data from Excel.
         """
         # Read parameters from Excel
         self.params_df = pd.read_excel(params_file, sheet_name=sheet_name, index_col=0)
-        self.district = self.params_df.loc['name', 'pv']  # District name
+        self.district = self.params_df.loc['name', solar_energy_type]  # District name
         self.solar_energy_type = solar_energy_type  # 'pv' or 'heat'
 
         # Assign parameters from DataFrame
@@ -40,7 +40,7 @@ class PVMonthCalculator:
         self.panel_pars['heat']['s_panel'] = self.params_df.loc['s_panel', 'heat']
         self.panel_pars['pv']['kWp_limit'] = self.params_df.loc['kWp_limit', 'pv'] if not pd.isnull(self.params_df.loc['kWp_limit','pv']) else 0
 
-        self.nominal_power = 0.3  # kWp
+        self.nominal_power = nominal_power_kwp  # kWp
 
         # Calculate limit number of panels on the roof considering regulatory disadvantages
         self.panel_pars['pv']['n_panel_limit'] = self.panel_pars['pv']['kWp_limit'] / self.nominal_power if self.panel_pars['pv']['kWp_limit'] else 0

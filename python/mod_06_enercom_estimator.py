@@ -9,7 +9,7 @@ import importlib
 import matplotlib.pyplot as plt
 
 class EnercomEstimator:
-    def __init__(self, root, pv_pct=0.25, ec_price_coef=0.5):
+    def __init__(self, root,df_pv_gen=None, pv_pct=None, ec_price_coef=None ):
         # Initialize parameters
         self.root = root
         print(f"Root directory: {self.root}")
@@ -26,30 +26,31 @@ class EnercomEstimator:
         #self.util_func = importlib.import_module(module_name)
 
         # Load data
-        self.load_data()
+        #self.load_data()
 
-    def load_data(self):
+    #def load_data(self):
         # Load PV generation data
-        pv_file_name = "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx"
-        pv_path = os.path.join(self.root,"data", pv_file_name)
-        self.df_pv_gen = pd.read_excel(pv_path, sheet_name='Otxarkoaga', dtype={'census_id': str})
-        self.df_pv_gen=self.df_pv_gen[self.df_pv_gen["building"]=="V"]
+        #pv_file_name = "02_footprint_r_area_wb_rooftop_analysis_pv_month_pv.xlsx"
+        #pv_path = os.path.join(self.root,"data", pv_file_name)
+        #self.df_pv_gen = pd.read_excel(pv_path, sheet_name='Otxarkoaga', dtype={'census_id': str})
+        self.df_pv_gen=df_pv_gen#[self.df_pv_gen["building"]=="V"]
         self.df_pv_gen = self.df_pv_gen.groupby('census_id').sum().reset_index()
+        print (f"PV generation data loaded from and grouped by census_id.")
 
         # Load other dataframes
-        self.df_consumption_profile = pd.read_csv(
+        self.df_cons_with_pv = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_with_pv_by_census_id_monthly_{self.pv_pct}.csv'),
             dtype={'census_id': str})
         self.df_cons_no_pv = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_aggreg_cons_prof_no_pv_by_census_id_monthly_{self.no_pv_pct}.csv'),
             dtype={'census_id': str})
-        self.df_self_consumption = pd.read_csv(
+        self.df_self_cons_pct_pv = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_self_cons_pct_month_{self.pv_pct}.csv'),
             dtype={'census_id': str})
-        self.df_cons_no_pv_cov = pd.read_csv(
+        self.df_cov_pct_no_pv = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_no_pv_month_{self.no_pv_pct}.csv'),
             dtype={'census_id': str})
-        self.df_cons_pv_cov = pd.read_csv(
+        self.df_cov_pct_with_pv = pd.read_csv(
             os.path.join(self.root, f'data/04_energy_consumption_profiles/dwell_share_{self.pv_pct}/04_cov_pct_pv_month_{self.pv_pct}.csv'),
             dtype={'census_id': str})
 
@@ -61,18 +62,48 @@ class EnercomEstimator:
             sheet_name='04_dwelling_profiles_census', dtype={'census_id': str}, index_col=0)
         self.stat_data.index = self.stat_data.index.astype(str)
 
+
+        
+    # non optimized version.  A critical difference: if any census ID is missing in one of the DataFrames, the second version will silently drop that row.
+    """
     def prepare_energy_data(self):
         # Step 1: Aggregate PV generation per census_id by month
         self.df_pv_gen.rename(columns={i: f'gen_m{i}' for i in range(1, 13)}, inplace=True)
         monthly_gen_cols = [f'gen_m{i}' for i in range(1, 13)]
         pv_gen = self.df_pv_gen.groupby('census_id')[monthly_gen_cols].sum().reset_index()
 
-        # Merge PV generation, consumption, and self-consumption data on census_id
-        energy_data = pd.merge(pv_gen, self.df_consumption_profile, on='census_id')
-        energy_data = pd.merge(energy_data, self.df_self_consumption, on='census_id')
-        energy_data = pd.merge(energy_data, self.df_cons_no_pv_cov, on='census_id')
-        energy_data = pd.merge(energy_data, self.df_cons_pv_cov, on='census_id')
+        # Merge PV generation, consumption, and self-consumption data on census_id. Uses explicit sequential merges — more readable in small pipelines but less scalable.
+
+
+        energy_data = pd.merge(pv_gen, self.df_cons_with_pv, on='census_id') #Uses default merge (how='inner'), which may drop rows if any DataFrame is missing a matching census_id.
+        energy_data = pd.merge(energy_data, self.df_self_cons_pct_pv, on='census_id')
+        energy_data = pd.merge(energy_data, self.df_cov_pct_no_pv, on='census_id')
+        energy_data = pd.merge(energy_data, self.df_cov_pct_with_pv, on='census_id')
         energy_data = pd.merge(energy_data, self.df_cons_no_pv, on='census_id')
+        self.energy_data = energy_data
+    """
+    def prepare_energy_data(self):
+        # Rename PV generation columns only if not already renamed
+        gen_cols = {i: f'gen_m{i}' for i in range(1, 13)}
+        if not all(f'gen_m{i}' in self.df_pv_gen.columns for i in range(1, 13)):
+            self.df_pv_gen.rename(columns=gen_cols, inplace=True)
+
+        monthly_gen_cols = [f'gen_m{i}' for i in range(1, 13)]
+        pv_gen = self.df_pv_gen.groupby('census_id', as_index=False)[monthly_gen_cols].sum()
+
+        # List of (dataframe, on) to merge in order. Uses a loop to merge from a list — more flexible and easier to maintain.
+        merge_list = [
+            (self.df_cons_with_pv, 'census_id'),
+            (self.df_self_cons_pct_pv, 'census_id'),
+            (self.df_cov_pct_no_pv, 'census_id'),
+            (self.df_cov_pct_with_pv, 'census_id'),
+            (self.df_cons_no_pv, 'census_id')
+        ]
+        
+        energy_data = pv_gen
+        for df, key in merge_list:
+            energy_data = pd.merge(energy_data, df, on=key, how='left') #Uses how='left', which ensures all census_ids from pv_gen are retained.
+
         self.energy_data = energy_data
 
     def calculate_costs(self):
@@ -167,22 +198,32 @@ class EnercomEstimator:
             cost_with_EC_cols = [f'C_EC_BwPV_m{i}' for i in range(1, 13)] + [f'C_EC_BwoPV_m{i}' for i in range(1, 13)]
             self.energy_data.reset_index()[['census_id'] + cost_with_EC_cols].to_excel(writer, sheet_name='costs_with_EC', index=False)
 
-    def analyze(self):
+    def analyze(self, plot = True, title="Estimated Costs Comparison"):
         # Plotting
         df_total_cost = pd.DataFrame(index=self.energy_data.index)
         df_total_cost['Avg Costs, dwellings with PV'] = self.energy_data[[f'C_BwPV_m{i}' for i in range(1, 13)]].sum(axis=1)
         df_total_cost['Avg Costs, dwellings without PV'] = self.energy_data[[f'C_BwoPV_m{i}' for i in range(1, 13)]].sum(axis=1)
         df_total_cost['Avg Costs in EC, dwellings with PV'] = self.energy_data[[f'C_EC_BwPV_m{i}' for i in range(1, 13)]].sum(axis=1)
         df_total_cost['Avg Costs in EC, dwellings without PV'] = self.energy_data[[f'C_EC_BwoPV_m{i}' for i in range(1, 13)]].sum(axis=1)
-
-        # Plot using util_func
-        util_func.EconomicAnalysisGraphs.plot_ec_costs(
-            df_total_cost,
-            C_ec_b_PV='Avg Costs in EC, dwellings with PV',
-            C_ec_b_nPV='Avg Costs in EC, dwellings without PV',
-            C_cov_b_PV='Avg Costs, dwellings with PV',
-            C_cov_b_nPV='Avg Costs, dwellings without PV'
-        )
+        
+        if plot:
+            # Plot using util_func
+            fig = util_func.EconomicAnalysisGraphs.plot_ec_costs(
+                df_total_cost,
+                C_ec_b_PV='Avg Costs in EC, dwellings with PV',
+                C_ec_b_nPV='Avg Costs in EC, dwellings without PV',
+                C_cov_b_PV='Avg Costs, dwellings with PV',
+                C_cov_b_nPV='Avg Costs, dwellings without PV',
+                title=title
+            )
+            # Save the figure if returned
+            if not os.path.exists('data/06_enercom_estimator/img'):
+                os.makedirs('data/06_enercom_estimator/img')
+                plt.tight_layout()
+                fig.savefig(f'data/06_enercom_estimator/img/EC_costs_dwell_share_{self.pv_pct}_price_diff_{self.ec_price_coef}.png', bbox_inches='tight')
+            else:
+                plt.tight_layout()
+                fig.savefig(f'data/06_enercom_estimator/img/EC_costs_dwell_share_{self.pv_pct}_price_diff_{self.ec_price_coef}.png', bbox_inches='tight')
 
         # Normalize by number of dwellings
         df_total_cost['Avg Costs, dwellings with PV'] = df_total_cost['Avg Costs, dwellings with PV'].div(
@@ -251,16 +292,26 @@ class EnercomEstimator:
         plot = df_total_cost[['Savings, Dwell with PV, %', 'Savings, Dwell without PV, %']].plot(
             kind='bar', ylabel="Savings in %", figsize=(10, 6),
             title=f"Savings in % for {self.pv_pct * 100}% of dwellings with PV, price_diff:{self.ec_price_coef * 100}%",
-            color=['grey', 'black'])
+            color=['blue', 'orange'])
         plot.set_xticklabels(df_total_cost.index, rotation=45)
 
-        util_func.EconomicAnalysisGraphs.plot_ec_costs(
+        fig = util_func.EconomicAnalysisGraphs.plot_ec_costs(
             df_total_cost,
             C_ec_b_PV='Avg Costs in EC, dwellings with PV',
             C_ec_b_nPV='Avg Costs in EC, dwellings without PV',
             C_cov_b_PV='Avg Costs, dwellings with PV',
-            C_cov_b_nPV='Avg Costs, dwellings without PV'
+            C_cov_b_nPV='Avg Costs, dwellings without PV',
+            title=f"Estimated Costs for `Scenario {int(self.pv_pct * 100)}%`, price_diff:{int(self.ec_price_coef * 100)}%"
         )
+        # Save the figure if returned
+        if not os.path.exists('data/06_enercom_estimator/img'):
+            os.makedirs('data/06_enercom_estimator/img')
+            plt.tight_layout()
+            fig.savefig(f'data/06_enercom_estimator/img/EC_costs_per_dwelling_dwell_share_{self.pv_pct}_price_diff_{self.ec_price_coef}.png', bbox_inches='tight')
+        else:
+            plt.tight_layout()
+            fig.savefig(f'data/06_enercom_estimator/img/EC_costs_per_dwelling_dwell_share_{self.pv_pct}_price_diff_{self.ec_price_coef}.png', bbox_inches='tight')
+
 
     def monthly_sensitivity_analysis(self):
         # Monthly Sensitivity Analysis

@@ -19,8 +19,8 @@ class UtilFunctions:
             df.to_excel(writer, sheet_name=sheet_name)
 
     @staticmethod
-    def add_sheet_to_excel(df, filename="template.xlsx", sheet_name="template2", index=False):
-        with pd.ExcelWriter(filename, mode='a', engine='openpyxl', if_sheet_exists= "error") as writer:  
+    def add_sheet_to_excel(df, filename="template.xlsx", sheet_name="template2", index=False, if_sheet_exists="error"):
+        with pd.ExcelWriter(filename, mode='a', engine='openpyxl', if_sheet_exists= if_sheet_exists) as writer:  
             df.to_excel(writer, sheet_name=sheet_name, index=index)
     
     def load_data(self, path, files):
@@ -425,9 +425,9 @@ class PlotFunctions:
         dataframe = dataframe.T
         # Extract x-axis values and y-axis groups from the DataFrame
         x = dataframe.index  # x-axis (e.g., Months)
-        print(x)
+        #print(x)
         y = dataframe.values.T  # y-axis values for stacking (transpose for stackplot)
-        print(y)
+        #print(y)
 
         # Plot the stackplot
         plt.figure(figsize=(12, 6))
@@ -831,7 +831,7 @@ class EconomicAnalysisGraphs:
         pass
     
     @staticmethod
-    def plot_ec_costs(df, C_ec_b_PV='C_ec_b_PV', C_ec_b_nPV= 'C_ec_b_nPV', C_cov_b_PV='C_cov_b_PV', C_cov_b_nPV='C_cov_b_PV'):
+    def plot_ec_costs(df, C_ec_b_PV='C_ec_b_PV', C_ec_b_nPV= 'C_ec_b_nPV', C_cov_b_PV='C_cov_b_PV', C_cov_b_nPV='C_cov_b_PV', title='Estimated Costs Comparison'):
         fig, ax = plt.subplots()
         # Plot bar plots for Variable1 and Variable2
         df[[f'{C_ec_b_PV}', f'{C_ec_b_nPV}']].plot(kind='bar', ax=ax, width=0.7)
@@ -847,10 +847,11 @@ class EconomicAnalysisGraphs:
         # Set labels and title
         ax.set_xlabel('Census_ID')
         ax.set_ylabel('Costs EUR')
-        ax.set_title('Comparing estimated costs')
+        ax.set_title(title)
         ax.set_xticklabels(df.index, rotation=45)
         ax.legend(loc='best',bbox_to_anchor=(1, 1)).set_visible(True)
         plt.show()
+        return fig
 
     @staticmethod
     def plot_npv_bar_chart(agg_df):
