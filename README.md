@@ -20,7 +20,7 @@ SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework 
     
     Python ver used: 3.9.16
 
-    Anaconda environment snapshot with pip installed pachages:          [environment_with_builds.yml](./00_set_up_directories/environment_with_builds.yml)
+    Anaconda environment snapshot with pip installed pachages:          [spacer-hb_environment.yml](./00_set_up_directories/spacer-hb_environment.yml)
 - **QGIS and Whitebox plugin:**
     
     QGIS version used: 3.32.3
@@ -42,7 +42,7 @@ SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework 
 This framework is implemented through a customized set of Python tools and methods, integrated within a Jupyter Notebook:
 📓 [main_jp_notebook.ipynb](./main_jp_notebook.ipynb)
 
-##### 📁 Project Directory Structure
+##### 📁 Project Directory Principal Structure
 
 ```text
 root_folder/
@@ -51,7 +51,7 @@ root_folder/
 │   └── Contains raw LIDAR files for the area of interest. These files are the input for further spatial processing via Whitebox Tools: Rooftop Analysis.
 │
 ├── pyqgis_whitebox_tool/
-│   └── Stores output from LIDAR processing scripts run via the PyQGIS console.
+│   └── Stores output from LIDAR processing scripts run via the PyQGIS console [created upon run].
 │
 ├── raster/
 │   └── Holds supporting raster datasets (e.g., land cover, elevation models) used in analysis.
