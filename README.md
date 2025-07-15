@@ -51,7 +51,7 @@ root_folder/
 │   └── Contains raw LIDAR files for the area of interest. These files are the input for further spatial processing via Whitebox Tools: Rooftop Analysis.
 │
 ├── pyqgis_whitebox_tool/
-│   └── Stores output from LIDAR processing scripts run via the PyQGIS console [is created upon script run].
+│   └── Stores output from LIDAR processing scripts, run via the WhiteboxTools Rooftop Analysis [is created upon script run].
 │
 ├── raster/
 │   └── Holds supporting raster datasets (e.g., land cover, elevation models) used in analysis.
@@ -70,10 +70,11 @@ root_folder/
 It was developed as part of a PhD dissertation titled "Exploring and Supporting Energy Communities through Spatially Integrated Methods in Local Energy Planning." 
 
 The framework, as a methodological proposal and toolkit for ECs planning, expands upon the published study:
+
 O. Husiev, O. U. Arrien, and M. Enciso-Santocildes, “Spatial analysis of energy communities and energy vulnerabilities in Spain,” Utilities Policy, vol. 95, p. 101954, Aug. 2025, doi: 10.1016/j.jup.2025.101954
 It integrates various aspects, such as building stock geometric inventory, energy flexibility, and renewable energy deployment estimation.
 
-The framework links census-level statistical boundaries with building-specific data, combining geospatial vector/raster layers and tabular inputs. Python-based automation scripts streamline several core processes. While this project does not include full front-end/backend integration or database infrastructure, it builds on open-source tools otherwise available only as commercial software or requiring large, detailed datasets. To demonstrated 
+The framework links census-level statistical boundaries with building-specific data, combining geospatial vector/raster layers and tabular inputs. Python-based automation scripts streamline several core processes. While this project does not include full front-end/backend integration or database infrastructure, it builds on open-source tools otherwise available typically as commercial software or requiring large, detailed datasets.
 
 #### 🧰 Design Principles
 Rather than providing a fully optimized or production-ready software stack, the framework focuses on:
