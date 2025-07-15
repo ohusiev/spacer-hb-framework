@@ -5,7 +5,7 @@
 
 ## What is SPACER-HB?
 
-SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework for early-stage local energy community (EC) planning. It integrates solar rooftop and buildings' facade renovation potential inventory with household-level energy vulnerability mapping to support informed pre-feasibility decisions.  It enables exploration of energy community scenarios and identification of priority areas—without requiring detailed local data or complex models.
+SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework for early-stage local energy community (EC) planning. It integrates solar rooftop and buildings' facade renovation potential inventory with household-level energy vulnerability mapping to support informed pre-feasibility decisions.  It enables exploration of energy community scenarios and identification of priority areas, without requiring detailed local data or complex models.
 
 
 ## Main purpose of the framework:
@@ -20,14 +20,14 @@ SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework 
     
     Python ver used: 3.9.16
 
-    Anaconda environment snapshot with pip installed pachages:          [spacer-hb_environment.yml](./00_set_up_directories/spacer-hb_environment.yml)
+    Anaconda environment snapshot with pip installed packages:          [spacer-hb_environment.yml](./00_set_up_directories/spacer-hb_environment.yml)
 - **QGIS and Whitebox plugin:**
     
     QGIS version used: 3.32.3
     
     Whitebox tools: [Whitebox Workflows for Python](https://www.whiteboxgeo.com/whitebox-workflows-for-python/)
 
-    More about Whitebox products open-source / commercial licence: [here](https://groups.google.com/g/whiteboxtools/c/p6P1n3LRWHo?pli=1)
+    More about Whitebox products open-source/commercial licence: [here](https://groups.google.com/g/whiteboxtools/c/p6P1n3LRWHo?pli=1)
 
 - **LoadProfileGenerator Tool:**
     Version:10.10  
@@ -36,7 +36,7 @@ SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework 
 
 > **!! IMPORTANT: It is important to ensure the same coordinate system from the beginning !!**
 
-> **Workig directory set-up by default built in a simple way, i.e it is assumed to be a single project (i.e: single Case Study per root directory tree).**
+> **Working directory set-up by default built in a simple way, i.e it is assumed to be a single project (i.e: single Case Study per root directory tree).**
 
 #### Methodology & Structure
 This framework is implemented through a customized set of Python tools and methods, integrated within a Jupyter Notebook:
@@ -51,7 +51,7 @@ root_folder/
 │   └── Contains raw LIDAR files for the area of interest. These files are the input for further spatial processing via Whitebox Tools: Rooftop Analysis.
 │
 ├── pyqgis_whitebox_tool/
-│   └── Stores output from LIDAR processing scripts run via the PyQGIS console [created upon run].
+│   └── Stores output from LIDAR processing scripts run via the PyQGIS console [is created upon script run].
 │
 ├── raster/
 │   └── Holds supporting raster datasets (e.g., land cover, elevation models) used in analysis.
@@ -70,7 +70,7 @@ root_folder/
 It was developed as part of a PhD dissertation titled "Exploring and Supporting Energy Communities through Spatially Integrated Methods in Local Energy Planning." 
 
 The framework expands upon the published study:
-Husiev, O. (2025). Spatial analysis of energy communities and energy vulnerabilities in Spain. Journal of Urban Planning, 2025, 101954. https://doi.org/10.1016/j.jup.2025.101954. This work integrates various aspects, such as building stock geometric inventory, energy flexibility and renewable energy deployment estimation, to provide a methodological proposal for the design and planning of energy communities.
+Husiev, O. (2025). Spatial analysis of energy communities and energy vulnerabilities in Spain. Journal of Urban Planning, 2025, 101954. https://doi.org/10.1016/j.jup.2025.101954. This work integrates various aspects, such as building stock geometric inventory, energy flexibility, and renewable energy deployment estimation, to provide a methodological proposal for the design and planning of energy communities.
 
 The framework links census-level statistical boundaries with building-specific data, combining geospatial vector/raster layers and tabular inputs. Python-based automation scripts streamline several core processes. While this project does not include full front-end/backend integration or database infrastructure, it builds on open-source tools otherwise available only as commercial software or requiring large, detailed datasets. To demonstrated 
 
