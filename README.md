@@ -69,8 +69,9 @@ root_folder/
 
 It was developed as part of a PhD dissertation titled "Exploring and Supporting Energy Communities through Spatially Integrated Methods in Local Energy Planning." 
 
-The framework expands upon the published study:
-Husiev, O. (2025). Spatial analysis of energy communities and energy vulnerabilities in Spain. Journal of Urban Planning, 2025, 101954. https://doi.org/10.1016/j.jup.2025.101954. This work integrates various aspects, such as building stock geometric inventory, energy flexibility, and renewable energy deployment estimation, to provide a methodological proposal for the design and planning of energy communities.
+The framework, as a methodological proposal and toolkit for ECs planning, expands upon the published study:
+O. Husiev, O. U. Arrien, and M. Enciso-Santocildes, “Spatial analysis of energy communities and energy vulnerabilities in Spain,” Utilities Policy, vol. 95, p. 101954, Aug. 2025, doi: 10.1016/j.jup.2025.101954
+It integrates various aspects, such as building stock geometric inventory, energy flexibility, and renewable energy deployment estimation.
 
 The framework links census-level statistical boundaries with building-specific data, combining geospatial vector/raster layers and tabular inputs. Python-based automation scripts streamline several core processes. While this project does not include full front-end/backend integration or database infrastructure, it builds on open-source tools otherwise available only as commercial software or requiring large, detailed datasets. To demonstrated 
 
