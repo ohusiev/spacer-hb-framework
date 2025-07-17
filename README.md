@@ -38,7 +38,15 @@ SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework 
 
 > **Working directory set-up by default built in a simple way, i.e it is assumed to be a single project (i.e: single Case Study per root directory tree).**
 
-**The central case study used to build and partially verify the framework’s outputs is the Otxarkoaga neighborhood in Bilbao, Northern Spain. This case has also been featured in the following scientific publications:**
+The framework was developed as part of a PhD dissertation titled *"Exploring and Supporting Energy Communities through Spatially Integrated Methods in Local Energy Planning."*
+
+It integrates various aspects, such as building stock geometric inventory, energy flexibility, and renewable energy deployment estimation. As a methodological proposal and toolkit for ECs planning, it expands upon the published study:
+
+O. Husiev, O. U. Arrien, and M. Enciso-Santocildes, *“Spatial analysis of energy communities and energy vulnerabilities in Spain,”* Utilities Policy, vol. 95, p. 101954, Aug. 2025, doi: 10.1016/j.jup.2025.101954
+
+The framework links census-level statistical boundaries with building-specific data, combining geospatial vector/raster layers and tabular inputs. Python-based automation scripts streamline several core processes. While this project does not include full front-end/backend integration or database infrastructure, it builds on open-source tools otherwise available typically as commercial software or requiring large, detailed datasets.
+
+The central case study used to build and partially verify the framework’s outputs is the Otxarkoaga neighborhood in Bilbao, Northern Spain. This case has also been featured in the following scientific publications:
 
 - [doi: 10.1016/j.enbuild.2014.10.018](https://doi.org/10.1016/j.enbuild.2014.10.018)
 - [doi: 10.1016/j.enconman.2016.08.042](https://doi.org/10.1016/j.enconman.2016.08.042)
@@ -73,15 +81,6 @@ root_folder/
 └── data/
     └── Stores temporary and Python scripting Modules' output data files
 ```
-
-It was developed as part of a PhD dissertation titled "Exploring and Supporting Energy Communities through Spatially Integrated Methods in Local Energy Planning." 
-
-The framework, as a methodological proposal and toolkit for ECs planning, expands upon the published study:
-
-O. Husiev, O. U. Arrien, and M. Enciso-Santocildes, “Spatial analysis of energy communities and energy vulnerabilities in Spain,” Utilities Policy, vol. 95, p. 101954, Aug. 2025, doi: 10.1016/j.jup.2025.101954
-It integrates various aspects, such as building stock geometric inventory, energy flexibility, and renewable energy deployment estimation.
-
-The framework links census-level statistical boundaries with building-specific data, combining geospatial vector/raster layers and tabular inputs. Python-based automation scripts streamline several core processes. While this project does not include full front-end/backend integration or database infrastructure, it builds on open-source tools otherwise available typically as commercial software or requiring large, detailed datasets.
 
 #### 🧰 Design Principles
 Rather than providing a fully optimized or production-ready software stack, the framework focuses on:
