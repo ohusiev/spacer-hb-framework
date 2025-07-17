@@ -38,6 +38,13 @@ SPACER-HB is an ad-hoc, spatial, and public-data-based methodological framework 
 
 > **Working directory set-up by default built in a simple way, i.e it is assumed to be a single project (i.e: single Case Study per root directory tree).**
 
+**The central case study used to build and partially verify the framework’s outputs is the Otxarkoaga neighborhood in Bilbao, Northern Spain. This case has also been featured in the following scientific publications:**
+
+- [doi: 10.1016/j.enbuild.2014.10.018](https://doi.org/10.1016/j.enbuild.2014.10.018)
+- [doi: 10.1016/j.enconman.2016.08.042](https://doi.org/10.1016/j.enconman.2016.08.042)
+- [doi: 10.1016/j.enbuild.2023.113288](https://doi.org/10.1016/j.enbuild.2023.113288)
+- [doi: 10.1016/j.scs.2021.102787](https://doi.org/10.1016/j.scs.2021.102787)
+
 #### Methodology & Structure
 This framework is implemented through a customized set of Python tools and methods, integrated within a Jupyter Notebook:
 📓 [main_jp_notebook.ipynb](./main_jp_notebook.ipynb)
@@ -126,6 +133,3 @@ Although the framework covers spatial processing and workflow design, some compo
 - 📊 Add interactive visualizations as a dashboard-like presentation and output exploration
 
 - 🛢️ Integrate lightweight database functionality (e.g. DuckDB) for smoother data flow
-
-
-
